@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>이커머스 통합 마진 계산기</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-primary:      #1249a0;
+      --color-primary-dark: #0d3780;
+      --color-accent:       #e8192c;
+      --color-profit-high:  #16a34a;
+      --color-profit-low:   #d97706;
+      --color-loss:         #dc2626;
+      --color-surface:      #f8fafc;
+      --color-surface2:     #f1f5f9;
+      --color-border:       #e2e8f0;
+      --color-text:         #1e293b;
+      --color-text-muted:   #64748b;
+      --color-white:        #ffffff;
+      --radius:             10px;
+      --shadow:             0 2px 8px rgba(0,0,0,0.08);
+      --shadow-lg:          0 4px 20px rgba(0,0,0,0.12);
+
+      --platform-coupang:   #c00021;
+      --platform-naver:     #03c75a;
+      --platform-elevenst:  #f04e23;
+      --platform-gmarket:   #ff6b00;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+      background: var(--color-surface);
+      color: var(--color-text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+      color: var(--color-white);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: var(--shadow-lg);
+    }
+    .app-logo {
+      background: var(--color-accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .app-title    { font-size: 1.25rem; font-weight: 700; }
+    .app-subtitle { font-size: 0.8rem; opacity: 0.75; }
+
+    /* ── Platform Tabs ── */
+    .platform-tabs {
+      display: flex;
+      background: var(--color-white);
+      border-bottom: 2px solid var(--color-border);
+      padding: 0 1.5rem;
+      overflow-x: auto;
+    }
+    .platform-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.85rem 1.4rem;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .platform-tab:hover { color: var(--color-text); background: var(--color-surface); }
+    .platform-tab[data-platform="coupang"]  { --p-color: var(--platform-coupang); }
+    .platform-tab[data-platform="naver"]    { --p-color: var(--platform-naver); }
+    .platform-tab[data-platform="elevenst"] { --p-color: var(--platform-elevenst); }
+    .platform-tab[data-platform="gmarket"]  { --p-color: var(--platform-gmarket); }
+    .platform-tab.active { color: var(--p-color); border-bottom-color: var(--p-color); }
+    .platform-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--p-color);
+      flex-shrink: 0;
+    }
+
+    /* ── Platform Seller Type Bar ── */
+    .seller-type-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1.5rem;
+      background: #fff5f5;
+      border-bottom: 1px solid #fecaca;
+    }
+    .seller-type-bar.naver-bar {
+      background: #f0fff6;
+      border-bottom-color: #86efac;
+    }
+    .seller-type-label { font-size: 0.78rem; font-weight: 600; color: var(--color-text-muted); }
+    .seller-type-btn {
+      border: 1.5px solid var(--color-border);
+      background: var(--color-white);
+      color: var(--color-text-muted);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .seller-type-btn.active {
+      background: var(--platform-coupang);
+      color: #fff;
+      border-color: var(--platform-coupang);
+    }
+    .seller-type-btn.active.naver-btn {
+      background: var(--platform-naver);
+      border-color: var(--platform-naver);
+    }
+    .seller-type-btn:hover:not(.active) { background: var(--color-surface2); }
+
+    /* ── Main Layout ── */
+    .app-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    .calc-grid {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--color-white);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header {
+      background: var(--color-surface2);
+      border-bottom: 1px solid var(--color-border);
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .card-body { padding: 1.25rem; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 1rem; }
+    .form-group:last-child { margin-bottom: 0; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      margin-bottom: 0.3rem;
+    }
+    input[type="number"], input[type="text"], select {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      border: 1.5px solid var(--color-border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      color: var(--color-text);
+      background: var(--color-white);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type="number"]:focus, input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(18,73,160,0.12);
+    }
+    .input-suffix { position: relative; }
+    .input-suffix input { padding-right: 2.5rem; }
+    .input-suffix .suffix {
+      position: absolute; right: 0.85rem; top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-text-muted); font-size: 0.85rem; pointer-events: none;
+    }
+    .naver-fee-display {
+      width: 100%; padding: 0.4rem 0.6rem;
+      background: #f8fafc; border: 1px solid #cbd5e1;
+      border-radius: 6px; font-size: 0.875rem; font-weight: 600;
+      color: var(--color-text); cursor: default;
+    }
+    .commission-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      color: var(--color-primary); font-size: 0.78rem; font-weight: 600;
+      padding: 0.2rem 0.6rem; border-radius: 20px; margin-top: 0.35rem;
+      line-height: 1.5;
+    }
+    .field-note { font-size: 0.72rem; color: var(--color-text-muted); margin-top: 0.25rem; }
+    .divider { border: none; border-top: 1px solid var(--color-border); margin: 1rem 0; }
+
+    /* ── Visibility ── */
+    .rg-only   { display: none; }
+    .open-only { display: block; }
+    body.rg-mode .rg-only   { display: block; }
+    body.rg-mode .open-only { display: none; }
+
+    .nfa-only  { display: none; }
+    body.naver-nfa-mode .nfa-only           { display: block; }
+    body.naver-nfa-mode .naver-nfa-hide     { display: none !important; }
+
+    .reverse-only { display: none; }
+    .forward-only { display: block; }
+    body.reverse-mode .reverse-only { display: block; }
+    body.reverse-mode .forward-only { display: none; }
+
+    /* ── Calc Mode Bar ── */
+    .calc-mode-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 1rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .calc-mode-label { font-size: 0.78rem; font-weight: 600; color: var(--color-text-muted); }
+    .calc-mode-btn {
+      border: 1.5px solid var(--color-border);
+      background: var(--color-white);
+      color: var(--color-text-muted);
+      font-family: inherit; font-size: 0.82rem; font-weight: 600;
+      padding: 0.3rem 0.85rem; border-radius: 20px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .calc-mode-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .calc-mode-btn:hover:not(.active) { background: var(--color-surface2); }
+
+    /* ── Calc Price Box (역산출) ── */
+    .calc-price-box {
+      background: #eff6ff;
+      border: 2px solid var(--color-primary);
+      border-radius: var(--radius);
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    body.reverse-mode .calc-price-box { display: flex; }
+    .calc-price-label { font-size: 0.75rem; font-weight: 600; color: var(--color-primary); opacity: 0.8; margin-bottom: 0.2rem; }
+    .calc-price-value { font-size: 1.5rem; font-weight: 700; color: var(--color-primary); }
+    .calc-price-badge {
+      font-size: 0.72rem; font-weight: 700;
+      background: var(--color-primary); color: #fff;
+      padding: 0.2rem 0.55rem; border-radius: 20px;
+    }
+
+    /* ── Result Summary ── */
+    .result-summary {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 0.75rem; margin-bottom: 1rem;
+    }
+    .stat-card {
+      border-radius: var(--radius); padding: 1rem;
+      text-align: center; border: 2px solid transparent;
+    }
+    .stat-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.3rem; opacity: 0.75; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+    .stat-formula { font-size: 0.68rem; color: var(--color-text-muted); margin-top: 0.35rem; opacity: 0.8; line-height: 1.4; }
+    .stat-card.profit-high { background: #f0fdf4; border-color: #86efac; color: var(--color-profit-high); }
+    .stat-card.profit-low  { background: #fffbeb; border-color: #fcd34d; color: var(--color-profit-low); }
+    .stat-card.loss        { background: #fef2f2; border-color: #fca5a5; color: var(--color-loss); }
+    .stat-card.neutral     { background: var(--color-surface2); border-color: var(--color-border); color: var(--color-text-muted); }
+
+    /* ── Breakdown Table ── */
+    .breakdown-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .breakdown-table td { padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--color-surface2); }
+    .breakdown-table tr:last-child td { border-bottom: none; }
+    .breakdown-table .row-label { color: var(--color-text-muted); vertical-align: middle; }
+    .breakdown-table .row-value { text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .breakdown-table .row-sub   { padding-left: 1rem; font-size: 0.82rem; color: var(--color-text-muted); }
+    .breakdown-table .row-total { font-weight: 700; font-size: 0.95rem; border-top: 2px solid var(--color-border) !important; }
+    .breakdown-table .row-total td { padding-top: 0.75rem; border-bottom: none; }
+    .row-neg-value { color: var(--color-loss); }
+    .row-inline-formula { font-size: 0.72rem; font-weight: 400; color: var(--color-text-muted); margin-left: 0.4rem; opacity: 0.85; }
+
+    /* ── Breakeven ── */
+    .breakeven-box {
+      margin-top: 1rem; border-radius: 8px;
+      padding: 0.85rem 1rem; font-size: 0.85rem;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .breakeven-box.ok   { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+    .breakeven-box.warn { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+    .breakeven-box.loss { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+    .breakeven-box .icon { font-size: 1.1rem; flex-shrink: 0; }
+    .breakeven-box strong { display: block; font-weight: 700; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.6rem 1.1rem; border: none; border-radius: 8px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: var(--color-primary); color: #fff; }
+    .btn-primary:hover { background: var(--color-primary-dark); transform: translateY(-1px); }
+    .btn-outline { background: transparent; color: var(--color-primary); border: 1.5px solid var(--color-primary); }
+    .btn-outline:hover { background: #eff6ff; }
+    .btn-danger { background: transparent; color: var(--color-loss); border: 1.5px solid #fca5a5; padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+    .actions-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+    /* ── Comparison Table ── */
+    .comparison-section { margin-top: 1.5rem; }
+    .comparison-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+    .comparison-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+    .product-count { background: var(--color-primary); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 20px; }
+    .table-wrap { overflow-x: auto; }
+    .comp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 950px; }
+    .comp-table th { background: var(--color-surface2); border: 1px solid var(--color-border); padding: 0.55rem 0.75rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); white-space: nowrap; }
+    .comp-table td { border: 1px solid var(--color-border); padding: 0.55rem 0.75rem; vertical-align: middle; white-space: nowrap; }
+    .comp-table tr:hover td { background: var(--color-surface2); }
+    .comp-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+    .pill.high     { background: #dcfce7; color: #166534; }
+    .pill.low      { background: #fef9c3; color: #92400e; }
+    .pill.loss     { background: #fee2e2; color: #991b1b; }
+    .pill.coupang  { background: #fff0f0; color: var(--platform-coupang); }
+    .pill.naver    { background: #f0fff6; color: #006e32; }
+    .pill.elevenst { background: #fff4f0; color: var(--platform-elevenst); }
+    .pill.gmarket  { background: #fff8f0; color: var(--platform-gmarket); }
+
+    /* ── Empty State ── */
+    .empty-state { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.88rem; }
+    .empty-icon  { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    /* ── VAT Section ── */
+    .vat-section {
+      background: #f8faff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 0;
+    }
+    .vat-section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 0.75rem;
+    }
+    .radio-group { display: flex; gap: 1.25rem; margin-bottom: 0.65rem; }
+    .radio-label {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--color-text);
+    }
+    .radio-label input[type="radio"] { width: auto; margin: 0; accent-color: var(--color-primary); }
+    .checkbox-label {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.84rem; cursor: pointer; color: var(--color-text);
+    }
+    .checkbox-label input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--color-primary); }
+    .vat-notice {
+      background: #fefce8; border: 1px solid #fde047;
+      border-radius: 6px; padding: 0.45rem 0.75rem;
+      font-size: 0.78rem; color: #92400e; margin-top: 0.5rem;
+    }
+    .vat-result-section {
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem;
+    }
+    .vat-result-title { font-size: 0.78rem; font-weight: 700; color: var(--color-primary); margin-bottom: 0.5rem; }
+    .vat-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+    .vat-stat {
+      background: white; border-radius: 8px; padding: 0.7rem;
+      text-align: center; border: 1px solid #bfdbfe;
+    }
+    .vat-stat-label { font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+    .vat-stat-value { font-size: 1.05rem; font-weight: 700; }
+
+    /* ── Naver Pay Tier Tooltip ── */
+    .tier-tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .tier-tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px; height: 15px;
+      background: #f87171;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: default;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .tier-tooltip-box { display: none; }
+    /* ── Fixed Tooltip (JS-positioned, overflow:hidden 카드 영향 없음) ── */
+    #fixedTooltip {
+      display: none; position: fixed;
+      background: #1e293b; color: #f1f5f9;
+      border-radius: 8px; padding: 0.6rem 0.85rem;
+      white-space: nowrap; z-index: 9999;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+      pointer-events: none;
+      font-size: 0.78rem; line-height: 1.6;
+    }
+    .tier-tooltip-table { border-collapse: collapse; font-size: 0.75rem; }
+    .tier-tooltip-table td { padding: 0.18rem 0.5rem; }
+    .tier-tooltip-table tr + tr td { border-top: 1px solid #334155; }
+    .tier-tooltip-table .t-name { font-weight: 700; color: #7dd3fc; padding-right: 0.75rem; }
+
+    /* ── ROI Tooltip ── */
+    .roi-tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+    }
+    .roi-tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px; height: 15px;
+      background: #94a3b8;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: default;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .roi-tooltip-box { display: none; }
+
+    /* ── Ad Rate ── */
+    .ad-field-note { font-size: 0.72rem; color: var(--color-text-muted); margin-top: 0.3rem; }
+
+    /* ── Suggest Price Box ── */
+    .suggest-box {
+      background: #f0fdf4; border: 1px solid #86efac;
+      border-radius: 8px; padding: 0.6rem 1rem;
+      margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+      font-size: 0.83rem; color: #166534;
+    }
+    .suggest-box strong { font-size: 0.97rem; font-weight: 700; color: #15803d; }
+    .suggest-input {
+      width: 52px; padding: 0.12rem 0.3rem;
+      border: 1px solid #86efac; border-radius: 4px;
+      font-size: 0.83rem; text-align: center;
+      background: white; color: #166534; font-family: inherit;
+    }
+
+    /* ── Monthly Profit ── */
+    .monthly-section {
+      background: #f8faff; border: 1px solid #c7d7f5;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.85rem;
+    }
+    .monthly-section-title { font-size: 0.78rem; font-weight: 700; color: var(--color-primary); margin-bottom: 0.5rem; }
+    .monthly-row { display: flex; align-items: center; gap: 0.5rem; }
+    .monthly-row input { width: 90px; }
+    .monthly-result { font-size: 1rem; font-weight: 700; color: var(--color-primary); margin-top: 0.45rem; }
+    .monthly-sub { font-size: 0.78rem; color: var(--color-text-muted); margin-top: 0.2rem; }
+
+    /* ── Platform Compare ── */
+    .platform-cmp-section { padding: 0 1.5rem 1.5rem; }
+    .platform-cmp-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .platform-cmp-table th {
+      background: var(--color-surface2); padding: 0.5rem 0.75rem;
+      font-weight: 700; font-size: 0.73rem; color: var(--color-text-muted);
+      text-transform: uppercase; letter-spacing: 0.04em; text-align: left;
+    }
+    .platform-cmp-table th.num, .platform-cmp-table td.num { text-align: right; }
+    .platform-cmp-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--color-border); }
+    .platform-cmp-table tr:last-child td { border-bottom: none; }
+    .platform-cmp-table tr:hover td { background: var(--color-surface); }
+    .best-row td { background: #f0fdf4 !important; }
+
+    /* ── Simulator ── */
+    .simulator-section { padding: 0 1.5rem 1.5rem; }
+    .sim-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .sim-header { padding: 0.85rem 1.25rem; font-size: 0.88rem; font-weight: 700; color: var(--color-text); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: 0.5rem; }
+    .sim-body { padding: 1rem 1.25rem; }
+    .sim-controls { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+    .sim-slider { flex: 1; min-width: 120px; accent-color: var(--color-primary); }
+    .sim-price-label { font-weight: 700; font-size: 0.95rem; color: var(--color-primary); min-width: 90px; text-align: right; }
+    .sim-stat-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; font-size: 0.83rem; }
+    .sim-stat { display: flex; flex-direction: column; gap: 0.1rem; }
+    .sim-stat-label { font-size: 0.7rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; }
+    .sim-stat-value { font-weight: 700; font-size: 0.95rem; }
+    .sim-chart-wrap { width: 100%; }
+    .sim-legend { display: flex; gap: 1.25rem; font-size: 0.72rem; color: var(--color-text-muted); margin-top: 0.4rem; flex-wrap: wrap; }
+    .sim-legend-item { display: flex; align-items: center; gap: 0.3rem; }
+    .sim-legend-line { width: 18px; height: 3px; border-radius: 2px; }
+
+    /* ── Footer ── */
+    .app-footer { text-align: center; padding: 1.5rem; font-size: 0.75rem; color: var(--color-text-muted); border-top: 1px solid var(--color-border); margin-top: 2rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .calc-grid { grid-template-columns: 1fr; }
+      .result-summary { grid-template-columns: repeat(3,1fr); }
+    }
+
+    /* ── 태블릿 이하 (≤ 768px) ── */
+    @media (max-width: 768px) {
+      /* 좌우 여백 축소 */
+      .app-main            { padding: 0.75rem; }
+      .platform-cmp-section { padding: 0 0.75rem 1rem; }
+      .simulator-section   { padding: 0 0.75rem 1rem; }
+      .comparison-section  { margin-top: 1rem; }
+      /* 비교표 헤더 버튼 그룹 줄바꿈 */
+      .comparison-header   { flex-direction: column; align-items: flex-start; }
+    }
+
+    /* ── 모바일 (≤ 500px) ── */
+    @media (max-width: 500px) {
+      /* 플랫폼 탭 */
+      .platform-tab { padding: 0.7rem 0.9rem; font-size: 0.82rem; }
+
+      /* 카드 내부 여백 축소 */
+      .card-body { padding: 1rem; }
+
+      /* 결과 요약 카드: 3개 세로 1열로 */
+      .result-summary { grid-template-columns: 1fr; }
+      .stat-value     { font-size: 1.2rem; }
+
+      /* 버튼 행: 전체 너비로 늘려 탭하기 쉽게 */
+      .actions-row      { flex-direction: column; }
+      .actions-row .btn { width: 100%; justify-content: center; }
+
+      /* 권장 판매가 박스 텍스트 크기 축소 */
+      .suggest-box { font-size: 0.78rem; gap: 0.3rem; }
+
+      /* 부가세 결과 그리드: 2열 → 1열 */
+      .vat-result-grid { grid-template-columns: 1fr; }
+
+      /* 플랫폼 비교 테이블: 덜 중요한 열(카테고리, 수수료 금액) 숨겨서 가독성 향상 */
+      .platform-cmp-table th:nth-child(2),
+      .platform-cmp-table td:nth-child(2),
+      .platform-cmp-table th:nth-child(4),
+      .platform-cmp-table td:nth-child(4) { display: none; }
+
+      /* 상품 비교표: 좁은 화면에서 가로 스크롤 힌트 */
+      .table-wrap { -webkit-overflow-scrolling: touch; }
+      .table-wrap::after {
+        content: '← 좌우로 스크롤하세요 →';
+        display: block;
+        text-align: center;
+        font-size: 0.7rem;
+        color: var(--color-text-muted);
+        padding: 0.35rem 0;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="fixedTooltip"></div>
+
+<!-- ─── Header ─── -->
+<header class="app-header">
+  <span class="app-logo">EC</span>
+  <div>
+    <div class="app-title">이커머스 통합 마진 계산기</div>
+    <div class="app-subtitle">쿠팡 · 네이버 · 11번가 · 지마켓 수수료 자동 계산</div>
+  </div>
+</header>
+
+<!-- ─── Platform Tabs ─── -->
+<nav class="platform-tabs" role="tablist">
+  <button class="platform-tab active" data-platform="coupang"  onclick="setPlatform('coupang')">
+    <span class="platform-dot"></span>쿠팡
+  </button>
+  <button class="platform-tab" data-platform="naver"    onclick="setPlatform('naver')">
+    <span class="platform-dot"></span>네이버 스마트스토어
+  </button>
+  <button class="platform-tab" data-platform="elevenst" onclick="setPlatform('elevenst')">
+    <span class="platform-dot"></span>11번가
+  </button>
+  <button class="platform-tab" data-platform="gmarket"  onclick="setPlatform('gmarket')">
+    <span class="platform-dot"></span>지마켓
+  </button>
+</nav>
+
+<!-- ─── 쿠팡 전용: 판매 유형 ─── -->
+<div class="seller-type-bar" id="sellerTypeBar">
+  <span class="seller-type-label">판매 유형</span>
+  <button class="seller-type-btn active" onclick="setSellerType('open')">오픈마켓</button>
+  <button class="seller-type-btn"        onclick="setSellerType('rocket')">로켓그로스</button>
+</div>
+
+<!-- ─── 네이버 전용: 판매 유형 ─── -->
+<div class="seller-type-bar naver-bar" id="naverSellerTypeBar" style="display:none;">
+  <span class="seller-type-label">판매 유형</span>
+  <button class="seller-type-btn naver-btn active" id="naverBtnGeneral" onclick="setNaverSellerType('general')">일반판매</button>
+  <button class="seller-type-btn naver-btn"        id="naverBtnNfa"     onclick="setNaverSellerType('nfa')">🚀 N배송</button>
+</div>
+
+<!-- ─── Main ─── -->
+<main class="app-main">
+  <div class="calc-grid">
+
+    <!-- ─ Input Panel ─ -->
+    <div>
+      <div class="card">
+        <div class="card-header">📦 상품 정보 입력</div>
+        <div class="card-body">
+
+          <!-- 계산 방식 -->
+          <div class="calc-mode-bar">
+            <span class="calc-mode-label">계산 방식</span>
+            <button class="calc-mode-btn active" onclick="setCalcMode('forward')">📊 정산출</button>
+            <button class="calc-mode-btn"        onclick="setCalcMode('reverse')">🔄 역산출</button>
+          </div>
+
+          <!-- 상품명 -->
+          <div class="form-group">
+            <label for="productName">상품명 (선택)</label>
+            <input type="text" id="productName" placeholder="비교표에 표시될 상품명" />
+          </div>
+
+          <!-- 카테고리 (네이버 외 플랫폼) -->
+          <div class="form-group" id="categoryGroup">
+            <label for="categorySelect">카테고리</label>
+            <select id="categorySelect" onchange="onCategoryChange()"></select>
+          </div>
+
+          <!-- 네이버 판매수수료 고정 표시 -->
+          <div class="form-group" id="naverCategoryGroup" style="display:none;">
+            <label style="display:flex;align-items:center;gap:0.35rem;">
+              판매수수료
+              <span class="tier-tooltip-wrap">
+                <span class="tier-tooltip-icon">?</span>
+                <div class="tier-tooltip-box">
+                  <div style="font-size:0.75rem; line-height:1.8; white-space:nowrap;">
+                    쇼핑 검색 유입 3% (VAT포함)<br>
+                    네이버광고 유입 1% (VAT포함)<br>
+                    마케팅 링크 유입 1% (VAT포함)
+                  </div>
+                </div>
+              </span>
+            </label>
+            <div class="naver-fee-display">3% (VAT포함)</div>
+          </div>
+
+          <!-- 수수료 배지 -->
+          <div class="commission-badge" id="commBadge" style="margin-bottom:0.15rem;">📋 수수료 계산 중...</div>
+
+          <!-- 쿠팡 서비스 이용료 안내 -->
+          <div id="coupangFeeNotice" class="field-note" style="display:none; background:#fff0f0; border:1px solid #fecaca; border-radius:6px; padding:0.45rem 0.75rem; color:#991b1b;">
+            💡 월 매출 100만 원 이상 시 서비스 이용료 <strong>55,000원/월 (VAT 포함)</strong>이 별도 청구됩니다.
+          </div>
+
+          <!-- 네이버 결제수수료 등급 -->
+          <div class="form-group" id="naverPayTierGroup" style="display:none;">
+            <label for="naverPayTierSelect" style="display:flex;align-items:center;gap:0.35rem;">
+              네이버페이 결제수수료 등급
+              <span class="tier-tooltip-wrap">
+                <span class="tier-tooltip-icon">?</span>
+                <div class="tier-tooltip-box">
+                  <table class="tier-tooltip-table">
+                    <tr><td class="t-name">영세</td><td>연 매출 3억 원 이하</td></tr>
+                    <tr><td class="t-name">중소1</td><td>연 매출 3억 초과 ~ 5억 원 이하</td></tr>
+                    <tr><td class="t-name">중소2</td><td>연 매출 5억 초과 ~ 10억 원 이하</td></tr>
+                    <tr><td class="t-name">중소3</td><td>연 매출 10억 초과 ~ 30억 원 이하</td></tr>
+                    <tr><td class="t-name">일반</td><td>연 매출 30억 원 초과</td></tr>
+                  </table>
+                </div>
+              </span>
+            </label>
+            <select id="naverPayTierSelect" onchange="onNaverPayTierChange()">
+              <option value="micro">영세 — 1.947% (VAT포함)</option>
+              <option value="small1">중소1 — 2.563% (VAT포함)</option>
+              <option value="small2">중소2 — 2.728% (VAT포함)</option>
+              <option value="small3">중소3 — 3.003% (VAT포함)</option>
+              <option value="general" selected>일반 — 3.630% (VAT포함)</option>
+            </select>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- 정산출: 판매가 -->
+          <div class="form-group forward-only">
+            <label for="sellingPrice">판매가 (원)</label>
+            <div class="input-suffix">
+              <input type="number" id="sellingPrice" value="" min="0" placeholder="0" oninput="calculate()" />
+              <span class="suffix">원</span>
+            </div>
+          </div>
+
+          <!-- 역산출: 목표 마진율 -->
+          <div class="form-group reverse-only">
+            <label for="targetMarginRate">목표 마진율 (%)</label>
+            <div class="input-suffix">
+              <input type="number" id="targetMarginRate" value="20" min="0" max="99" step="0.5" oninput="calculate()" />
+              <span class="suffix">%</span>
+            </div>
+            <div class="field-note">입력한 마진율을 달성하기 위한 최소 판매가를 자동 계산합니다.</div>
+          </div>
+
+          <!-- 원가 -->
+          <div class="form-group">
+            <label for="costPrice">원가 / 매입가 (원)</label>
+            <div class="input-suffix">
+              <input type="number" id="costPrice" value="" min="0" placeholder="0" oninput="calculate()" />
+              <span class="suffix">원</span>
+            </div>
+          </div>
+
+          <!-- 기타 비용 -->
+          <div class="form-group">
+            <label for="additionalCost">기타 비용 (원) <span style="font-weight:400;font-size:0.72rem;">포장재, 인건비 등</span></label>
+            <div class="input-suffix">
+              <input type="number" id="additionalCost" value="" min="0" placeholder="0" oninput="calculate()" />
+              <span class="suffix">원</span>
+            </div>
+          </div>
+
+          <!-- 광고비 -->
+          <div class="form-group">
+            <label for="adRate">광고비율 (%) <span style="font-weight:400;font-size:0.72rem;">판매가 대비 CPC/CPM</span></label>
+            <div class="input-suffix">
+              <input type="number" id="adRate" value="" min="0" max="50" step="0.1" placeholder="0" oninput="calculate()" />
+              <span class="suffix">%</span>
+            </div>
+            <div class="ad-field-note">쿠팡·네이버 광고비를 판매가의 %로 입력. (예: 3% → 판매가 30,000원 시 광고비 900원)</div>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- 배송비 (오픈마켓 공통) -->
+          <div class="open-only naver-nfa-hide">
+            <div class="form-group">
+              <label for="shippingFee">배송비 (원) <span style="font-weight:400;font-size:0.72rem;">판매자 부담분</span></label>
+              <div class="input-suffix">
+                <input type="number" id="shippingFee" value="3000" min="0" oninput="calculate()" />
+                <span class="suffix">원</span>
+              </div>
+              <div class="field-note" id="shippingNote">고객에게 배송비 무료 제공 시 실제 발송 택배비를 입력하세요.</div>
+            </div>
+          </div>
+
+          <!-- 네이버 N배송 전용 -->
+          <div class="nfa-only">
+            <div class="form-group">
+              <label for="nfaSizeTier">상품 사이즈 등급 (N배송)</label>
+              <select id="nfaSizeTier" onchange="calculate()">
+                <option value="S">S — 최장변 40cm↓, 1kg↓</option>
+                <option value="M" selected>M — 최장변 60cm↓, 5kg↓</option>
+                <option value="L">L — 최장변 80cm↓, 10kg↓</option>
+                <option value="XL">XL — 특대형 (10kg 초과 또는 장축 80cm 초과)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="nfaStorageDays">평균 창고 보관일수</label>
+              <div class="input-suffix">
+                <input type="number" id="nfaStorageDays" value="20" min="0" oninput="calculate()" />
+                <span class="suffix">일</span>
+              </div>
+              <div class="field-note">30일 이하 무료 (파트너사 기준). 이후 일 150원/Cell 수준.</div>
+            </div>
+            <div class="form-group">
+              <label for="nfaReturnRate">예상 반품율 (%)</label>
+              <div class="input-suffix">
+                <input type="number" id="nfaReturnRate" value="3" min="0" max="100" step="0.5" oninput="calculate()" />
+                <span class="suffix">%</span>
+              </div>
+            </div>
+            <div class="field-note" style="background:#f0fff6;border:1px solid #86efac;border-radius:6px;padding:0.45rem 0.75rem;color:#166534;">
+              📦 물류비는 N배송 파트너사 대표값 기준입니다. N배송 사용료(1.5%)는 자동 계산됩니다.
+            </div>
+          </div>
+
+          <!-- 쿠팡 로켓그로스 전용 -->
+          <div class="rg-only">
+            <div class="form-group">
+              <label for="sizeTier">상품 사이즈 등급 (로켓그로스)</label>
+              <select id="sizeTier" onchange="calculate()">
+                <option value="XS">XS — 250g 이하, 최장변 25cm 이하</option>
+                <option value="S">S  — 500g 이하, 최장변 35cm 이하</option>
+                <option value="M" selected>M  — 2kg 이하, 최장변 50cm 이하</option>
+                <option value="L1">L1 — 5kg 이하, 최장변 70cm 이하</option>
+                <option value="L2">L2 — 10kg 이하, 최장변 100cm 이하</option>
+                <option value="XL">XL — 10kg 초과 또는 대형</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="storageDays">평균 창고 보관일수</label>
+              <div class="input-suffix">
+                <input type="number" id="storageDays" value="20" min="0" oninput="calculate()" />
+                <span class="suffix">일</span>
+              </div>
+              <div class="field-note">30일 이하 무료. 이후 보관일수에 따라 보관료 부과.</div>
+            </div>
+            <div class="form-group">
+              <label for="returnRate">예상 반품율 (%)</label>
+              <div class="input-suffix">
+                <input type="number" id="returnRate" value="3" min="0" max="100" step="0.5" oninput="calculate()" />
+                <span class="suffix">%</span>
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <!-- 부가가치세 섹션 -->
+          <div class="vat-section">
+            <div class="vat-section-title">🧾 부가가치세 설정</div>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="vatType" value="general" checked onchange="onVatTypeChange()" />
+                일반과세자
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="vatType" value="simplified" onchange="onVatTypeChange()" />
+                간이과세자
+              </label>
+            </div>
+
+            <!-- 일반과세자 옵션 -->
+            <div id="vatGeneralOptions">
+              <div class="field-note" style="margin-bottom:0.4rem;">매출세액 10% 자동 계산됩니다. (판매가 기준)</div>
+              <label class="checkbox-label">
+                <input type="checkbox" id="vatInputDeduction" onchange="calculate()" />
+                매입세액 공제 (원가 부가세 환급 반영)
+              </label>
+            </div>
+
+            <!-- 간이과세자 옵션 -->
+            <div id="vatSimplifiedOptions" style="display:none;">
+              <label class="checkbox-label" style="margin-bottom:0.5rem;">
+                <input type="checkbox" id="vatExceedThreshold" onchange="onExceedThresholdChange()" />
+                연매출 4,800만원 초과
+              </label>
+              <div id="vatExemptNotice" class="vat-notice">
+                💡 납부의무 면제 — 연매출 4,800만원 이하 간이과세자는 부가세 납부의무가 없습니다.
+              </div>
+              <div id="vatSimplifiedSector" style="display:none;margin-top:0.6rem;">
+                <label>업종 선택</label>
+                <select id="simplifiedSectorSelect" onchange="calculate()" style="margin-top:0.3rem;">
+                  <option value="0.15">소매 — 부가가치율 15%</option>
+                  <option value="0.20">제조 — 부가가치율 20%</option>
+                  <option value="0.20">음식점 — 부가가치율 20%</option>
+                  <option value="0.30">서비스 — 부가가치율 30%</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button class="btn btn-primary" onclick="addToComparison(event)">➕ 비교표에 추가</button>
+            <button class="btn btn-outline" onclick="resetForm()">↺ 초기화</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─ Results Panel ─ -->
+    <div>
+      <div class="card">
+        <div class="card-header">📊 계산 결과</div>
+        <div class="card-body">
+
+          <!-- 역산출: 계산된 판매가 -->
+          <div class="calc-price-box reverse-only" id="calcPriceBox">
+            <div>
+              <div class="calc-price-label">목표 마진율 달성을 위한 최소 판매가</div>
+              <div class="calc-price-value" id="calcPriceValue">—</div>
+            </div>
+            <span class="calc-price-badge">역산출</span>
+          </div>
+
+          <!-- 권장 판매가 (정산출 모드 전용) -->
+          <div class="suggest-box forward-only" id="suggestBox">
+            💡 마진
+            <input class="suggest-input" type="number" id="suggestTargetRate" value="20" min="0" max="99" step="1" oninput="calculate()" />
+            % 달성 최소 판매가:
+            <strong id="suggestPrice">—</strong>
+          </div>
+
+          <!-- Summary -->
+          <div class="result-summary">
+            <div class="stat-card neutral" id="statProfit">
+              <div class="stat-label">마진 금액</div>
+              <div class="stat-value" id="valProfit">—</div>
+              <div class="stat-formula" id="formulaProfit"></div>
+            </div>
+            <div class="stat-card neutral" id="statMarginRate">
+              <div class="stat-label">마진율</div>
+              <div class="stat-value" id="valMarginRate">—</div>
+              <div class="stat-formula" id="formulaMarginRate"></div>
+            </div>
+            <div class="stat-card neutral" id="statRoi">
+              <div style="display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;margin-bottom:0.3rem;">
+                <div class="stat-label" style="margin-bottom:0;">ROI</div>
+                <span class="roi-tooltip-wrap">
+                  <span class="roi-tooltip-icon">?</span>
+                  <span class="roi-tooltip-box">
+                    <strong style="color:#7dd3fc;">ROI (Return on Investment)</strong><br>
+                    투자 대비 수익률을 나타내는 지표입니다.<br>
+                    <br>
+                    <span style="color:#fde68a;">ROI = 마진 금액 ÷ 총 투자비용 × 100</span><br>
+                    <br>
+                    예) 총비용 1만원 투자 → 2천원 마진이면<br>
+                    ROI = 20% (1만원 투자로 20% 수익)
+                  </span>
+                </span>
+              </div>
+              <div class="stat-value" id="valRoi">—</div>
+              <div class="stat-formula" id="formulaRoi"></div>
+            </div>
+          </div>
+
+          <!-- Breakdown -->
+          <table class="breakdown-table">
+            <tbody>
+              <tr>
+                <td class="row-label">판매가</td>
+                <td class="row-value" id="bdSelling">—</td>
+              </tr>
+              <tr class="row-negative">
+                <td class="row-label">　 − 원가/매입가</td>
+                <td class="row-value row-neg-value" id="bdCost">—</td>
+              </tr>
+              <tr class="row-negative">
+                <td class="row-label" id="bdCommLabel"><span id="bdCommLabelText">　 − 판매 수수료</span><span class="row-inline-formula" id="bdCommFormula"></span></td>
+                <td class="row-value row-neg-value" id="bdComm">—</td>
+              </tr>
+              <tr class="row-negative" style="display:none;">
+                <td class="row-label row-sub" id="bdCommRateLabel">　　 (수수료 세율 × 1.1 VAT)</td>
+                <td class="row-value" id="bdCommRate" style="color:var(--color-text-muted);font-size:0.8rem;"></td>
+              </tr>
+              <!-- 네이버 결제수수료 -->
+              <tr class="row-negative" id="rowNaverPayment" style="display:none;">
+                <td class="row-label">　 − 결제수수료 (네이버페이 3.63%)</td>
+                <td class="row-value row-neg-value" id="bdNaverPayment">—</td>
+              </tr>
+              <tr class="row-negative" id="rowLogistics">
+                <td class="row-label" id="logisticsLabel">　 − 배송비</td>
+                <td class="row-value row-neg-value" id="bdLogistics">—</td>
+              </tr>
+              <!-- 로켓그로스 / N배송 공통 -->
+              <tr class="row-negative" id="rowStorage" style="display:none;">
+                <td class="row-label" id="storageLabel">　 − 보관료 (추정)</td>
+                <td class="row-value row-neg-value" id="bdStorage">—</td>
+              </tr>
+              <tr class="row-negative" id="rowReturn" style="display:none;">
+                <td class="row-label" id="returnLabel">　 − 반품 처리비 (추정)</td>
+                <td class="row-value row-neg-value" id="bdReturn">—</td>
+              </tr>
+              <!-- 네이버 N배송 전용 -->
+              <tr class="row-negative" id="rowNfaService" style="display:none;">
+                <td class="row-label">　 − N배송 사용료 (1.5%)</td>
+                <td class="row-value row-neg-value" id="bdNfaService">—</td>
+              </tr>
+              <tr class="row-negative" id="rowAdditional">
+                <td class="row-label">　 − 기타 비용</td>
+                <td class="row-value row-neg-value" id="bdAdditional">—</td>
+              </tr>
+              <tr class="row-negative" id="rowAd" style="display:none;">
+                <td class="row-label">　 − 광고비</td>
+                <td class="row-value row-neg-value" id="bdAd">—</td>
+              </tr>
+              <tr id="rowVatPayment" style="display:none;">
+                <td class="row-label">　 − 부가세 납부액<span class="row-inline-formula" id="bdVatFormula"></span></td>
+                <td class="row-value row-neg-value" id="bdVatPayment">—</td>
+              </tr>
+              <tr class="row-total">
+                <td class="row-label">순이익 (마진)</td>
+                <td class="row-value" id="bdNetProfit" style="font-size:1rem;">—</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Breakeven -->
+          <div class="breakeven-box ok" id="breakevenBox">
+            <span class="icon">⚖️</span>
+            <div>
+              <strong>손익분기점</strong>
+              <span id="breakevenText">계산 중...</span>
+            </div>
+          </div>
+
+          <!-- 월 예상 순이익 -->
+          <div class="monthly-section">
+            <div class="monthly-section-title">📅 월 예상 순이익</div>
+            <div class="monthly-row">
+              <label style="font-size:0.83rem;white-space:nowrap;">월 판매량</label>
+              <input type="number" id="monthlyQty" value="100" min="0" oninput="calculate()" />
+              <span style="font-size:0.83rem;">개</span>
+            </div>
+            <div class="monthly-result" id="monthlyResult">—</div>
+            <div class="monthly-sub" id="monthlySub"></div>
+          </div>
+
+          <!-- VAT 반영 실수령 결과 -->
+          <div class="vat-result-section" id="vatResultSection" style="display:none;">
+            <div class="vat-result-title">🧾 부가가치세 반영 실수령</div>
+            <div style="font-size:0.78rem;color:var(--color-text-muted);margin-bottom:0.55rem;" id="vatAmountDesc">납부 부가세: —</div>
+            <div class="vat-result-grid">
+              <div class="vat-stat">
+                <div class="vat-stat-label">부가세 후 실수령 마진</div>
+                <div class="vat-stat-value" id="vatAfterProfit" style="color:var(--color-text);">—</div>
+                <div class="stat-formula" id="vatAfterProfitFormula"></div>
+              </div>
+              <div class="vat-stat">
+                <div class="vat-stat-label">실수령 마진율</div>
+                <div class="vat-stat-value" id="vatAfterMarginRate" style="color:var(--color-text);">—</div>
+                <div class="stat-formula" id="vatAfterMarginFormula"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─ Platform Compare ─ -->
+  <div class="platform-cmp-section">
+    <div class="comparison-header">
+      <div class="comparison-title">📊 플랫폼별 수익 비교 <span style="font-size:0.75rem;font-weight:400;color:var(--color-text-muted);">동일 상품 기준 실시간 비교</span></div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="platform-cmp-table">
+          <thead>
+            <tr>
+              <th>플랫폼</th>
+              <th>카테고리</th>
+              <th class="num">수수료율</th>
+              <th class="num">수수료 금액</th>
+              <th class="num">마진 금액</th>
+              <th class="num">마진율</th>
+            </tr>
+          </thead>
+          <tbody id="platformCompBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:1rem;">계산 후 자동으로 표시됩니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─ Simulator ─ -->
+  <div class="simulator-section">
+    <div class="sim-card">
+      <div class="sim-header">📈 판매가 시뮬레이터 <span style="font-size:0.75rem;font-weight:400;color:var(--color-text-muted);">슬라이더로 판매가를 조정하면 마진율이 실시간으로 변합니다</span></div>
+      <div class="sim-body">
+        <div class="sim-controls">
+          <span style="font-size:0.83rem;white-space:nowrap;">판매가</span>
+          <input type="range" class="sim-slider" id="simSlider" min="1000" max="200000" step="500" value="30000" oninput="onSimSlider(this.value)" />
+          <span class="sim-price-label" id="simPriceLabel">30,000원</span>
+        </div>
+        <div class="sim-stat-row">
+          <div class="sim-stat">
+            <span class="sim-stat-label">마진율</span>
+            <span class="sim-stat-value" id="simMarginRate" style="color:var(--color-primary);">—</span>
+          </div>
+          <div class="sim-stat">
+            <span class="sim-stat-label">마진 금액</span>
+            <span class="sim-stat-value" id="simProfit">—</span>
+          </div>
+          <div class="sim-stat">
+            <span class="sim-stat-label">손익분기점</span>
+            <span class="sim-stat-value" id="simBreakeven">—</span>
+          </div>
+        </div>
+        <div class="sim-chart-wrap" id="simChartWrap"></div>
+        <div class="sim-legend">
+          <div class="sim-legend-item"><div class="sim-legend-line" style="background:var(--color-primary);"></div> 마진율 곡선</div>
+          <div class="sim-legend-item"><div class="sim-legend-line" style="background:var(--color-accent);border-top:2px dashed var(--color-accent);height:0;"></div> 현재 판매가</div>
+          <div class="sim-legend-item"><div class="sim-legend-line" style="background:#f59e0b;border-top:2px dashed #f59e0b;height:0;"></div> 손익분기점</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─ Comparison Table ─ -->
+  <div class="comparison-section">
+    <div class="comparison-header">
+      <div class="comparison-title">
+        📋 상품 비교표
+        <span class="product-count" id="productCount">0</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV 내보내기</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑 전체 삭제</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="comp-table" id="compTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>상품명</th>
+              <th>플랫폼</th>
+              <th>카테고리</th>
+              <th>판매유형</th>
+              <th class="num">판매가</th>
+              <th class="num">원가</th>
+              <th class="num">수수료</th>
+              <th class="num">물류비</th>
+              <th class="num">기타</th>
+              <th class="num">마진금액</th>
+              <th class="num">마진율</th>
+              <th class="num">ROI</th>
+              <th class="num">손익분기점</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="compBody">
+            <tr>
+              <td colspan="15">
+                <div class="empty-state">
+                  <div class="empty-icon">📭</div>
+                  아직 추가된 상품이 없습니다.<br />상품 정보를 입력 후 "비교표에 추가" 버튼을 눌러주세요.
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  ※ 본 계산기는 각 플랫폼 공식 수수료를 기반으로 하며, 실제 청구 금액은 상이할 수 있습니다. 수수료는 변경될 수 있으므로 정기적으로 각 플랫폼 공지를 확인하세요.<br />
+  쿠팡 2025년 기준 | 네이버 스마트스토어 2025년 기준 (판매수수료 3% VAT포함 + 네이버페이 결제수수료 1.947%~3.630% 등급별 상이 VAT포함) | 11번가 2025년 기준 | 지마켓 2025년 기준
+</footer>
+
+<script>
+  // ─── Platform Data ──────────────────────────────────────────────────────
+  // 각 플랫폼별 설정값 모음
+  // vatMultiplier: 수수료에 부가세(VAT)를 곱할 배율 (일반과세 플랫폼은 1.10, 네이버는 VAT포함 고시라 1.0)
+  // paymentFeeRate: 결제수수료 비율 (네이버만 별도 존재, 나머지는 0)
+  // categories: 카테고리별 판매수수료율(%)
+
+  const PLATFORM_DATA = {
+    coupang: {
+      name: '쿠팡',
+      vatMultiplier:  1.10,
+      paymentFeeRate: 0,
+      categories: [
+        { group: '패션', items: [
+          { name: '패션의류',    rate: 10.5 },
+          { name: '패션잡화',    rate: 10.5 },
+        ]},
+        { group: '뷰티/건강', items: [
+          { name: '뷰티',        rate: 9.6  },
+          { name: '건강식품',    rate: 10.8 },
+        ]},
+        { group: '식품', items: [
+          { name: '식품',        rate: 10.6 },
+        ]},
+        { group: '가전/디지털', items: [
+          { name: '디지털기기',  rate: 7.8  },
+          { name: '컴퓨터/PC',   rate: 5.0  },
+          { name: '모니터',      rate: 4.5  },
+          { name: '마우스/키보드', rate: 6.5  },
+          { name: '대형가전',    rate: 5.8  },
+          { name: '냉난방가전',  rate: 5.8  },
+          { name: 'TV/영상가전', rate: 5.8  },
+          { name: '카메라/사진', rate: 6.0  },
+          { name: '게임',        rate: 6.8  },
+          { name: '소형가전',    rate: 7.8  },
+        ]},
+        { group: '생활/인테리어', items: [
+          { name: '생활용품',    rate: 7.8  },
+          { name: '홈인테리어',  rate: 10.8 },
+          { name: '주방용품',    rate: 10.8 },
+        ]},
+        { group: '스포츠', items: [
+          { name: '스포츠/레저', rate: 10.8 },
+        ]},
+        { group: '유아/완구', items: [
+          { name: '출산/유아동', rate: 10.0 },
+          { name: '완구/취미',   rate: 10.8 },
+        ]},
+        { group: '문화/도서', items: [
+          { name: '도서',        rate: 10.8 },
+          { name: '음반/DVD',    rate: 10.8 },
+          { name: '문구/사무',   rate: 10.8 },
+        ]},
+        { group: '기타', items: [
+          { name: '자동차용품',  rate: 10.0 },
+          { name: '반려동물',    rate: 10.8 },
+          { name: '공구/철물/DIY', rate: 10.8 },
+          { name: '주얼리/순금', rate: 4.0  },
+          { name: '기타',        rate: 10.8 },
+        ]},
+      ],
+    },
+
+    naver: {
+      name: '네이버 스마트스토어',
+      vatMultiplier:  1.0,
+      paymentFeeRate: 0.0363, // 네이버페이 주문관리 수수료 3.63% (VAT포함)
+      categories: [
+        { group: '스마트스토어', items: [
+          { name: '판매수수료',  rate: 3.0 }, // VAT포함
+        ]},
+      ],
+    },
+
+    elevenst: {
+      name: '11번가',
+      vatMultiplier:  1.10,
+      paymentFeeRate: 0,
+      categories: [
+        { group: '패션', items: [
+          { name: '패션의류',    rate: 13.0 },
+          { name: '패션잡화',    rate: 13.0 },
+        ]},
+        { group: '뷰티/건강', items: [
+          { name: '뷰티',        rate: 10.0 },
+          { name: '건강식품',    rate: 10.0 },
+        ]},
+        { group: '식품', items: [
+          { name: '식품',        rate: 10.0 },
+        ]},
+        { group: '가전/디지털', items: [
+          { name: '디지털/가전', rate: 7.0  },
+          { name: '컴퓨터',      rate: 7.0  },
+        ]},
+        { group: '생활/인테리어', items: [
+          { name: '생활/주방',   rate: 10.0 },
+          { name: '홈인테리어',  rate: 10.0 },
+        ]},
+        { group: '스포츠', items: [
+          { name: '스포츠/레저', rate: 10.0 },
+        ]},
+        { group: '유아/완구', items: [
+          { name: '유아동',      rate: 10.0 },
+          { name: '완구/취미',   rate: 10.0 },
+        ]},
+        { group: '문화/도서', items: [
+          { name: '도서',        rate: 10.0 },
+          { name: '음반/DVD',    rate: 10.0 },
+          { name: '문구/사무',   rate: 10.0 },
+        ]},
+        { group: '기타', items: [
+          { name: '자동차용품',  rate: 10.0 },
+          { name: '반려동물',    rate: 10.0 },
+          { name: '기타',        rate: 10.0 },
+        ]},
+      ],
+    },
+
+    gmarket: {
+      name: '지마켓',
+      vatMultiplier:  1.10,
+      paymentFeeRate: 0,
+      categories: [
+        { group: '패션', items: [
+          { name: '패션의류',    rate: 12.0 },
+          { name: '패션잡화',    rate: 12.0 },
+        ]},
+        { group: '뷰티/건강', items: [
+          { name: '뷰티',        rate: 10.0 },
+          { name: '건강식품',    rate: 10.0 },
+        ]},
+        { group: '식품', items: [
+          { name: '식품',        rate: 10.0 },
+        ]},
+        { group: '가전/디지털', items: [
+          { name: '디지털/가전', rate: 7.0  },
+          { name: '컴퓨터',      rate: 7.0  },
+        ]},
+        { group: '생활/인테리어', items: [
+          { name: '생활/주방',   rate: 10.0 },
+          { name: '홈인테리어',  rate: 10.0 },
+        ]},
+        { group: '스포츠', items: [
+          { name: '스포츠/레저', rate: 10.0 },
+        ]},
+        { group: '유아/완구', items: [
+          { name: '유아동',      rate: 10.0 },
+          { name: '완구/취미',   rate: 10.0 },
+        ]},
+        { group: '문화/도서', items: [
+          { name: '도서',        rate: 10.0 },
+          { name: '음반/DVD',    rate: 10.0 },
+          { name: '문구/사무',   rate: 10.0 },
+        ]},
+        { group: '기타', items: [
+          { name: '자동차용품',  rate: 10.0 },
+          { name: '반려동물',    rate: 10.0 },
+          { name: '기타',        rate: 10.0 },
+        ]},
+      ],
+    },
+  };
+
+  // 플랫폼마다 같은 카테고리를 부르는 이름이 달라서
+  // 쿠팡에서 선택한 카테고리를 11번가/지마켓에 맞게 변환할 때 사용하는 매핑 테이블
+  const CATEGORY_ALIAS = {
+    // 쿠팡 세분화 카테고리 → 11번가 / 지마켓
+    '컴퓨터/PC':     { elevenst: '컴퓨터',      gmarket: '컴퓨터'      },
+    '디지털기기':    { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '모니터':        { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '마우스/키보드': { elevenst: '컴퓨터',      gmarket: '컴퓨터'      },
+    '대형가전':      { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '냉난방가전':    { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    'TV/영상가전':   { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '카메라/사진':   { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '게임':          { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '소형가전':      { elevenst: '디지털/가전', gmarket: '디지털/가전' },
+    '생활용품':      { elevenst: '생활/주방',   gmarket: '생활/주방'   },
+    '주방용품':      { elevenst: '생활/주방',   gmarket: '생활/주방'   },
+    '출산/유아동':   { elevenst: '유아동',      gmarket: '유아동'      },
+    '공구/철물/DIY': { elevenst: '기타',        gmarket: '기타'        },
+    '주얼리/순금':   { elevenst: '기타',        gmarket: '기타'        },
+    // 11번가 / 지마켓 → 쿠팡
+    '디지털/가전':   { coupang: '디지털기기'   },
+    '컴퓨터':        { coupang: '컴퓨터/PC'    },
+    '생활/주방':     { coupang: '생활용품'     },
+    '유아동':        { coupang: '출산/유아동'  },
+  };
+
+  // 쿠팡 로켓그로스 물류비 (원)
+  // handling: 출고처리비, shipping: 배송비 — 사이즈 등급(XS~XL)별로 다름
+  const ROCKET_GROWTH_FEES = {
+    XS:  { handling: 600,  shipping: 1350 },
+    S:   { handling: 650,  shipping: 1550 },
+    M:   { handling: 1250, shipping: 2100 },
+    L1:  { handling: 1375, shipping: 2200 },
+    L2:  { handling: 1375, shipping: 4100 },
+    XL:  { handling: 1375, shipping: 5600 },
+  };
+
+  // 쿠팡 로켓그로스 보관료 구간 (원/일)
+  // 30일 이하는 무료, 이후 보관 기간이 길어질수록 단가 상승
+  // from~to: 보관일 구간, rate: 해당 구간의 일별 단가(원)
+  const STORAGE_TIERS = [
+    { from: 0,   to: 30,       rate: 0   },
+    { from: 30,  to: 60,       rate: 25  },
+    { from: 60,  to: 90,       rate: 50  },
+    { from: 90,  to: 120,      rate: 75  },
+    { from: 120, to: 180,      rate: 100 },
+    { from: 180, to: Infinity, rate: 150 },
+  ];
+
+  // ─── 네이버 N배송 물류비 (N배송 파트너사 대표값 기준) ─────────────
+  const NAVER_NFA_FEES = {
+    S:  { handling: 1400, shipping: 2500 }, // 최장변 40cm↓, 1kg↓
+    M:  { handling: 1700, shipping: 2800 }, // 최장변 60cm↓, 5kg↓
+    L:  { handling: 2100, shipping: 3500 }, // 최장변 80cm↓, 10kg↓
+    XL: { handling: 2550, shipping: 5000 }, // 특대형
+  };
+  const NAVER_NFA_STORAGE_FREE_DAYS = 30;  // 무료 보관 기간
+  const NAVER_NFA_STORAGE_DAILY     = 150; // 원/일 (30일 초과분, 파스토 기준)
+  const NAVER_NFA_SERVICE_RATE      = 0.015; // N배송 사용료 1.5% (VAT포함)
+
+  // 네이버페이 결제수수료 등급별 요율 (VAT포함)
+  // 연 매출 규모에 따라 영세~일반 등급이 나뉘며 등급이 낮을수록 수수료가 싸다
+  const NAVER_PAY_TIERS = {
+    micro:   { label: '영세',  rate: 0.01947 },
+    small1:  { label: '중소1', rate: 0.02563 },
+    small2:  { label: '중소2', rate: 0.02728 },
+    small3:  { label: '중소3', rate: 0.03003 },
+    general: { label: '일반',  rate: 0.03630 },
+  };
+
+  // ─── State ──────────────────────────────────────────────────────────────
+  // 현재 선택된 상태를 저장하는 전역 변수들
+  // platform: 선택된 플랫폼 ('coupang' | 'naver' | 'elevenst' | 'gmarket')
+  // sellerType: 쿠팡 판매 유형 ('open' | 'rocket')
+  // naverSellerType: 네이버 판매 유형 ('general' | 'nfa')
+  // naverPayTier: 네이버페이 수수료 등급 ('micro' | 'small1' | 'small2' | 'small3' | 'general')
+  // calcMode: 계산 방식 ('forward'=정산출 | 'reverse'=역산출)
+  // vatType: 사업자 유형 ('general'=일반과세자 | 'simplified'=간이과세자)
+  // products: 비교표에 추가된 상품 목록 배열
+  let platform        = 'coupang';
+  let sellerType      = 'open';
+  let naverSellerType = 'general';
+  let naverPayTier    = 'general';
+  let calcMode        = 'forward';
+  let vatType         = 'general';
+  let products        = [];
+
+  // ─── Platform Switch ─────────────────────────────────────────────────────
+  // 상단 탭 클릭 시 호출 — 플랫폼을 바꾸고 관련 UI 요소를 보이거나 숨긴다
+  function setPlatform(p) {
+    platform = p;
+
+    // 클릭한 탭만 활성화(active) 처리
+    document.querySelectorAll('.platform-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.platform === p);
+    });
+
+    // 쿠팡 판매유형 바 표시/숨김
+    const stBar = document.getElementById('sellerTypeBar');
+    stBar.style.display = p === 'coupang' ? 'flex' : 'none';
+
+    // 네이버 판매유형 바 표시/숨김
+    const naverBar = document.getElementById('naverSellerTypeBar');
+    naverBar.style.display = p === 'naver' ? 'flex' : 'none';
+
+    // 쿠팡 서비스 이용료 안내 표시/숨김
+    document.getElementById('coupangFeeNotice').style.display   = p === 'coupang' ? 'block' : 'none';
+    // 네이버 결제수수료 등급 표시/숨김
+    document.getElementById('naverPayTierGroup').style.display  = p === 'naver'   ? ''      : 'none';
+    // 네이버: 카테고리 드롭다운 숨기고 고정 판매수수료 표시
+    document.getElementById('categoryGroup').style.display      = p === 'naver'   ? 'none'  : '';
+    document.getElementById('naverCategoryGroup').style.display = p === 'naver'   ? ''      : 'none';
+    // 네이버: 수수료 배지 숨김 (판매수수료가 고정이므로 불필요)
+    document.getElementById('commBadge').style.display          = p === 'naver'   ? 'none'  : '';
+    // 수수료 세율 세부 행 항상 숨김
+    document.getElementById('bdCommRateLabel').closest('tr').style.display = 'none';
+
+    // 쿠팡이 아니면 오픈마켓으로 리셋
+    if (p !== 'coupang') {
+      sellerType = 'open';
+      document.body.classList.remove('rg-mode');
+    }
+
+    // 네이버가 아니면 N배송 모드 리셋
+    if (p !== 'naver') {
+      naverSellerType = 'general';
+      document.body.classList.remove('naver-nfa-mode');
+      document.getElementById('naverBtnGeneral').classList.add('active');
+      document.getElementById('naverBtnNfa').classList.remove('active');
+    }
+
+    document.getElementById('logisticsLabel').textContent = '　 − 배송비';
+
+    // 네이버 결제수수료 행 표시/숨김
+    document.getElementById('rowNaverPayment').style.display = p === 'naver' ? '' : 'none';
+
+    // 로켓그로스 / N배송 전용 행
+    const isRocket = p === 'coupang' && sellerType === 'rocket';
+    const isNfa    = p === 'naver'   && naverSellerType === 'nfa';
+    document.getElementById('rowStorage').style.display   = (isRocket || isNfa) ? '' : 'none';
+    document.getElementById('rowReturn').style.display    = (isRocket || isNfa) ? '' : 'none';
+    document.getElementById('rowNfaService').style.display = isNfa ? '' : 'none';
+
+    // 배송비 안내문 업데이트
+    const shippingNotes = {
+      coupang:  '고객에게 배송비 무료 제공 시 실제 발송 택배비를 입력하세요.',
+      naver:    '스마트스토어 판매자 부담 배송비를 입력하세요.',
+      elevenst: '11번가 판매자 부담 배송비를 입력하세요.',
+      gmarket:  '지마켓 판매자 부담 배송비를 입력하세요.',
+    };
+    document.getElementById('shippingNote').textContent = shippingNotes[p] || '';
+
+    buildCategorySelect();
+    calculate();
+  }
+
+  // ─── Seller Type (쿠팡 전용) ─────────────────────────────────────────────
+  // '오픈마켓' 또는 '로켓그로스' 버튼 클릭 시 호출
+  // rg-mode 클래스를 body에 붙이면 CSS에서 로켓그로스 전용 필드가 표시된다
+  function setSellerType(type) {
+    sellerType = type;
+    document.body.classList.toggle('rg-mode', type === 'rocket');
+    document.querySelectorAll('#sellerTypeBar .seller-type-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && type === 'open') || (i === 1 && type === 'rocket'));
+    });
+    document.getElementById('logisticsLabel').textContent =
+      type === 'rocket' ? '　 − 물류비 (핸들링+배송)' : '　 − 배송비';
+    document.getElementById('rowStorage').style.display    = type === 'rocket' ? '' : 'none';
+    document.getElementById('rowReturn').style.display     = type === 'rocket' ? '' : 'none';
+    document.getElementById('rowNfaService').style.display = 'none';
+    calculate();
+  }
+
+  // ─── Naver Seller Type ────────────────────────────────────────────────────
+  // 네이버 '일반판매' 또는 'N배송' 버튼 클릭 시 호출
+  // naver-nfa-mode 클래스를 body에 붙이면 N배송 전용 필드(사이즈, 보관일, 반품율)가 표시된다
+  function setNaverSellerType(type) {
+    naverSellerType = type;
+    const isNfa = type === 'nfa';
+    document.body.classList.toggle('naver-nfa-mode', isNfa);
+    document.getElementById('naverBtnGeneral').classList.toggle('active', !isNfa);
+    document.getElementById('naverBtnNfa').classList.toggle('active', isNfa);
+
+    document.getElementById('logisticsLabel').textContent =
+      isNfa ? '　 − 물류비 (출고처리+배송)' : '　 − 배송비';
+    document.getElementById('rowStorage').style.display    = isNfa ? '' : 'none';
+    document.getElementById('rowReturn').style.display     = isNfa ? '' : 'none';
+    document.getElementById('rowNfaService').style.display = isNfa ? '' : 'none';
+    calculate();
+  }
+
+  // ─── Naver Pay Tier ──────────────────────────────────────────────────────
+  // 네이버페이 수수료 등급 드롭다운 변경 시 호출 — 전역 변수 업데이트 후 배지 텍스트 갱신
+  function onNaverPayTierChange() {
+    naverPayTier = document.getElementById('naverPayTierSelect').value;
+    onCategoryChange();
+  }
+
+  // ─── VAT Type ────────────────────────────────────────────────────────────
+  // 부가세 라디오버튼(일반과세자/간이과세자) 변경 시 호출
+  // 선택에 따라 해당 옵션 블록만 표시하고 재계산
+  function onVatTypeChange() {
+    vatType = document.querySelector('input[name="vatType"]:checked').value;
+    document.getElementById('vatGeneralOptions').style.display   = vatType === 'general'    ? '' : 'none';
+    document.getElementById('vatSimplifiedOptions').style.display = vatType === 'simplified' ? '' : 'none';
+    calculate();
+  }
+
+  // 간이과세자에서 '연매출 4,800만원 초과' 체크박스 변경 시 호출
+  // 초과 시 업종선택 드롭다운을 보여주고, 미초과 시 납부의무 면제 안내를 표시
+  function onExceedThresholdChange() {
+    const exceeded = document.getElementById('vatExceedThreshold').checked;
+    document.getElementById('vatExemptNotice').style.display     = exceeded ? 'none' : '';
+    document.getElementById('vatSimplifiedSector').style.display = exceeded ? ''     : 'none';
+    calculate();
+  }
+
+  // ─── Calc Mode ───────────────────────────────────────────────────────────
+  // '정산출'(판매가 입력 → 마진 계산) / '역산출'(목표마진 입력 → 필요 판매가 계산) 전환
+  // reverse-mode 클래스를 body에 붙이면 CSS에서 각 모드 전용 필드가 자동으로 토글된다
+  function setCalcMode(mode) {
+    calcMode = mode;
+    document.body.classList.toggle('reverse-mode', mode === 'reverse');
+    document.querySelectorAll('.calc-mode-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && mode === 'forward') || (i === 1 && mode === 'reverse'));
+    });
+    calculate();
+  }
+
+  // ─── Category Select 빌드 ───────────────────────────────────────────────
+  // 플랫폼이 바뀔 때마다 카테고리 드롭다운을 해당 플랫폼의 목록으로 다시 만든다
+  // <optgroup>으로 그룹 구분, <option>의 data-rate 속성에 수수료율을 저장해둔다
+  function buildCategorySelect() {
+    const pData = PLATFORM_DATA[platform];
+    const sel   = document.getElementById('categorySelect');
+    sel.innerHTML = '';
+    pData.categories.forEach(group => {
+      const og = document.createElement('optgroup');
+      og.label = group.group;
+      group.items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value        = item.name;
+        opt.dataset.rate = item.rate;
+        opt.textContent  = `${item.name} — ${item.rate}%`;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+    onCategoryChange();
+  }
+
+  // ─── Category Change ─────────────────────────────────────────────────────
+  // 카테고리 드롭다운 변경 시 호출
+  // 선택된 수수료율을 읽어 배지(badge) 텍스트를 갱신하고 재계산한다
+  // 네이버는 판매수수료 + 결제수수료를 함께 표시
+  function onCategoryChange() {
+    const sel   = document.getElementById('categorySelect');
+    const opt   = sel.options[sel.selectedIndex];
+    const rate  = parseFloat(opt.dataset.rate);
+    const pData = PLATFORM_DATA[platform];
+
+    let badgeText;
+    if (platform === 'naver') {
+      const tier   = NAVER_PAY_TIERS[naverPayTier];
+      const payFee = (tier.rate * 100).toFixed(3);
+      badgeText = `📋 판매수수료: ${rate}% (VAT포함) + 결제수수료(${tier.label}): ${payFee}% (VAT포함)`;
+    } else {
+      const effective = (rate * pData.vatMultiplier).toFixed(2);
+      badgeText = `📋 수수료: ${rate}%  (VAT 포함 실효세율: ${effective}%)`;
+    }
+    document.getElementById('commBadge').textContent = badgeText;
+    calculate();
+  }
+
+  // ─── 보관료 계산 ─────────────────────────────────────────────────────────
+  // STORAGE_TIERS 구간표를 참고해 보관일수에 따른 총 보관료를 계산한다
+  // 예) 45일 보관 → 0~30일(무료) + 30~45일(25원×15일=375원)
+  function calcStorageFee(days) {
+    let total = 0;
+    for (const tier of STORAGE_TIERS) {
+      if (days <= tier.from) break;
+      const daysInTier = Math.min(days, tier.to === Infinity ? days : tier.to) - tier.from;
+      total += daysInTier * tier.rate;
+    }
+    return total;
+  }
+
+  // ─── Core Calculation ────────────────────────────────────────────────────
+  // 입력 값들을 모아 마진/수수료/손익분기점 등을 계산하고 renderResults()로 화면에 반영한다
+  // 정산출: 판매가 → 마진 계산 / 역산출: 목표마진 → 필요 판매가 계산
+  function calculate() {
+    const sel   = document.getElementById('categorySelect');
+    const opt   = sel.options[sel.selectedIndex];
+    const rate  = parseFloat(opt.dataset.rate) / 100; // 수수료율 (예: 10.5% → 0.105)
+    const pData = PLATFORM_DATA[platform];
+
+    const cost       = parseNum('costPrice');       // 원가/매입가
+    const additional = parseNum('additionalCost');  // 기타비용 (포장재, 인건비 등)
+    const adRate     = parseNum('adRate') / 100;    // 광고비율 (예: 3% → 0.03)
+
+    // 물류 관련 비용 초기화 (플랫폼/판매유형에 따라 아래에서 채워진다)
+    let logisticsCost = 0, storageFee = 0, returnFee = 0, nfaServiceFee = 0;
+
+    if (platform === 'coupang' && sellerType === 'rocket') {
+      const tier        = document.getElementById('sizeTier').value;
+      const fees        = ROCKET_GROWTH_FEES[tier];
+      const storageDays = parseNum('storageDays');
+      const returnRate  = parseNum('returnRate') / 100;
+      logisticsCost = fees.handling + fees.shipping;
+      storageFee    = calcStorageFee(storageDays);
+      returnFee     = fees.shipping * returnRate;
+    } else if (platform === 'naver' && naverSellerType === 'nfa') {
+      const tier        = document.getElementById('nfaSizeTier').value;
+      const fees        = NAVER_NFA_FEES[tier];
+      const storageDays = parseNum('nfaStorageDays');
+      const returnRate  = parseNum('nfaReturnRate') / 100;
+      logisticsCost = fees.handling + fees.shipping;
+      // 보관료: 30일 초과분만 과금
+      const chargeDays = Math.max(0, storageDays - NAVER_NFA_STORAGE_FREE_DAYS);
+      storageFee    = chargeDays * NAVER_NFA_STORAGE_DAILY;
+      returnFee     = fees.shipping * returnRate;
+      // N배송 사용료는 selling 기준 → 뒤에서 계산 (selling 확정 후)
+    } else {
+      logisticsCost = parseNum('shippingFee');
+    }
+
+    // 고정비용 합계: 판매가와 무관하게 항상 발생하는 비용들
+    const fixedCosts      = cost + logisticsCost + storageFee + returnFee + additional;
+    // 비교표용 중립 비용: 로켓그로스/N배송의 플랫폼 전용 물류비는 제외
+    const isRocketOrNfa   = (platform === 'coupang' && sellerType === 'rocket') ||
+                            (platform === 'naver'   && naverSellerType === 'nfa');
+    const compareCosts    = isRocketOrNfa ? cost + additional : fixedCosts;
+    const commRateWithVAT = rate * pData.vatMultiplier; // 판매수수료에 VAT 반영한 실효 수수료율
+    const payFeeRate      = platform === 'naver' ? NAVER_PAY_TIERS[naverPayTier].rate : pData.paymentFeeRate; // 결제수수료율
+    // N배송 역산출 시 N배송 사용료(1.5%)도 totalFeeRate에 포함
+    const nfaRate         = (platform === 'naver' && naverSellerType === 'nfa') ? NAVER_NFA_SERVICE_RATE : 0;
+    const totalFeeRate    = commRateWithVAT + payFeeRate + nfaRate + adRate; // 판매가 대비 총 비율 비용 합계
+
+    let selling;
+
+    if (calcMode === 'reverse') {
+      // 역산출: selling × (1 - totalFeeRate - targetMargin) = fixedCosts 를 풀면
+      // selling = fixedCosts / (1 - totalFeeRate - targetMargin)
+      const targetMargin = parseNum('targetMarginRate') / 100;
+      const denom = 1 - totalFeeRate - targetMargin;
+      if (denom <= 0) {
+        // 수수료+마진율 합이 100%를 초과하면 어떤 판매가로도 목표 달성 불가
+        renderCalcError('목표 마진율이 너무 높아 판매가를 계산할 수 없습니다.');
+        return null;
+      }
+      selling = fixedCosts / denom;
+    } else {
+      selling = parseNum('sellingPrice'); // 정산출: 사용자가 직접 입력한 판매가
+    }
+
+    // N배송 사용료 (selling 확정 후 계산)
+    nfaServiceFee = selling * nfaRate;
+
+    const adCost          = selling * adRate;          // 광고비 금액
+    const commissionSales = selling * commRateWithVAT; // 판매수수료 금액 (VAT포함)
+    const commissionPay   = selling * payFeeRate;      // 결제수수료 금액 (네이버만 해당)
+    const commission      = commissionSales + commissionPay;
+    const totalCost       = cost + commission + logisticsCost + storageFee + returnFee + nfaServiceFee + additional + adCost;
+    const profit          = selling - totalCost;                              // 세전 마진 금액
+    const marginRate      = selling > 0 ? profit / selling : 0;              // 마진율 = 마진 / 판매가
+    const roi             = totalCost > 0 ? profit / totalCost : 0;          // ROI = 마진 / 총비용
+
+    // 손익분기점: selling × (1 - totalFeeRate) = fixedCosts 를 풀면
+    // breakeven = fixedCosts / (1 - totalFeeRate)
+    const denomBE = 1 - totalFeeRate;
+    const breakeven = denomBE > 0 ? fixedCosts / denomBE : null;
+
+    // ── VAT 계산 ──
+    let vatPayment = 0;
+    let vatDesc    = '';
+
+    if (vatType === 'general') {
+      const salesVat = selling / 11;  // 판매가 × 10/110
+      const inputVat = document.getElementById('vatInputDeduction').checked
+                       ? (cost / 11) : 0;
+      vatPayment = salesVat - inputVat;
+      const deductText = inputVat > 0 ? ` − 매입세액 ${fmt(inputVat)}원` : '';
+      vatDesc = `납부 부가세: 매출세액 ${fmt(salesVat)}원${deductText} = ${fmt(vatPayment)}원`;
+    } else {
+      const exceeded = document.getElementById('vatExceedThreshold').checked;
+      if (!exceeded) {
+        vatPayment = 0;
+        vatDesc    = '납부 부가세: 0원 (납부의무 면제)';
+      } else {
+        const sectorRate = parseFloat(document.getElementById('simplifiedSectorSelect').value);
+        const grossVat   = selling * sectorRate * 0.1;
+        const deduction  = selling * 0.005; // 보수적 추정치 (실제 신용카드 발행세액공제 1.3%보다 낮게 적용)
+        vatPayment = Math.max(0, grossVat - deduction);
+        vatDesc = `납부세액: ${fmt(selling)}원 × ${(sectorRate*100).toFixed(0)}% × 10% − 공제세액(${fmt(selling)}원 × 0.5%, 보수적 적용) = ${fmt(vatPayment)}원`;
+      }
+    }
+
+    const afterVatProfit     = profit - vatPayment;
+    const afterVatMarginRate = selling > 0 ? afterVatProfit / selling : 0;
+
+    // ── VAT 반영 손익분기점 ──
+    // afterVatProfit = 0이 되는 판매가: selling*(1 - totalFeeRate) - fixedCosts - vatPerSelling*selling + vatFixed = 0
+    let breakevenVat = breakeven; // 기본값: VAT 없을 때와 동일
+    if (vatType === 'general') {
+      const inputVat = document.getElementById('vatInputDeduction').checked ? (cost / 11) : 0;
+      // afterVatProfit = selling*(1 - totalFeeRate - 1/11) - fixedCosts + inputVat = 0
+      const denomVat = 1 - totalFeeRate - 1 / 11;
+      breakevenVat = denomVat > 0 ? (fixedCosts - inputVat) / denomVat : null;
+    } else if (document.getElementById('vatExceedThreshold').checked) {
+      const sectorRate = parseFloat(document.getElementById('simplifiedSectorSelect').value);
+      // vatPayment = selling*(sectorRate*0.1 - 0.005)
+      const denomVat = 1 - totalFeeRate - (sectorRate * 0.1 - 0.005);
+      breakevenVat = denomVat > 0 ? fixedCosts / denomVat : null;
+    }
+
+    renderResults({
+      selling, cost, commissionSales, commissionPay, commission,
+      logisticsCost, storageFee, returnFee, nfaServiceFee,
+      additional, adCost, profit, marginRate, roi, breakeven: breakevenVat, rate,
+      vatPayment, vatDesc, afterVatProfit, afterVatMarginRate,
+      totalFeeRate, fixedCosts, compareCosts, adRate,
+    });
+
+    return {
+      selling, cost, commission, logisticsCost, storageFee, returnFee, nfaServiceFee,
+      additional, adCost, profit, marginRate, roi, breakeven: breakevenVat, rate,
+      vatPayment, afterVatProfit, afterVatMarginRate,
+    };
+  }
+
+  // ─── Render Results ──────────────────────────────────────────────────────
+  // calculate()에서 받은 결과 객체(r)를 화면의 각 DOM 요소에 채워넣는 함수
+  // 요소 ID를 수정하거나 표시 항목을 바꾸고 싶을 때 이 함수를 수정하면 된다
+  function renderResults(r) {
+    // 부가세가 있는 경우 실수령(after-VAT) 값으로 요약 카드를 표시
+    const hasVat        = r.vatPayment > 0;
+    const dispProfit     = hasVat ? r.afterVatProfit     : r.profit;
+    const dispMarginRate = hasVat ? r.afterVatMarginRate : r.marginRate;
+    const totalCostRaw   = r.selling - r.profit;   // pre-VAT 총비용 (roi 분모)
+    const dispRoi        = totalCostRaw > 0 ? dispProfit / totalCostRaw : 0;
+
+    const profitClass = getProfitClass(dispMarginRate);
+
+    const cpv = document.getElementById('calcPriceValue');
+    if (cpv) cpv.textContent = fmt(Math.ceil(r.selling)) + '원';
+
+    setStatCard('statProfit',     'valProfit',     fmt(dispProfit) + '원', profitClass);
+    setStatCard('statMarginRate', 'valMarginRate', pct(dispMarginRate),    profitClass);
+    setStatCard('statRoi',        'valRoi',        pct(dispRoi),           profitClass);
+
+    const totalCostForFormula = r.selling - r.profit;
+    document.getElementById('formulaProfit').textContent =
+      hasVat ? `마진 ${fmt(r.profit)} − 부가세 ${fmt(r.vatPayment)}`
+             : `판매가 ${fmt(r.selling)} − 총비용 ${fmt(totalCostForFormula)}`;
+    document.getElementById('formulaMarginRate').textContent =
+      `마진 ${fmt(dispProfit)} ÷ 판매가 ${fmt(r.selling)}`;
+    document.getElementById('formulaRoi').textContent =
+      `마진 ${fmt(dispProfit)} ÷ 총비용 ${fmt(totalCostForFormula)}`;
+
+    document.getElementById('bdSelling').textContent    = fmt(r.selling) + '원';
+    document.getElementById('bdCost').textContent       = '−' + fmt(r.cost) + '원';
+    const commEffRate = r.selling > 0 ? (r.commissionSales / r.selling * 100).toFixed(2) : '0';
+    document.getElementById('bdComm').textContent = '−' + fmt(r.commissionSales) + '원';
+    document.getElementById('bdCommFormula').textContent = `(${fmt(r.selling)} × ${commEffRate}%)`;
+    document.getElementById('bdLogistics').textContent  = '−' + fmt(r.logisticsCost) + '원';
+    document.getElementById('bdAdditional').textContent = '−' + fmt(r.additional) + '원';
+
+    // 광고비 행
+    const rowAd = document.getElementById('rowAd');
+    if (r.adCost > 0) {
+      rowAd.style.display = '';
+      document.getElementById('bdAd').textContent = '−' + fmt(r.adCost) + '원';
+    } else {
+      rowAd.style.display = 'none';
+    }
+
+    if (platform === 'naver') {
+      document.getElementById('bdCommLabelText').textContent = '　 − 판매수수료 3%(VAT포함)';
+      document.getElementById('bdCommRateLabel').textContent = `　　 (${(r.rate*100).toFixed(1)}% VAT포함)`;
+      document.getElementById('bdCommRate').textContent     = `${(r.rate*100).toFixed(1)}% (VAT포함)`;
+      const tierLabel = NAVER_PAY_TIERS[naverPayTier].label;
+      const tierRate  = (NAVER_PAY_TIERS[naverPayTier].rate * 100).toFixed(3);
+      document.getElementById('rowNaverPayment').querySelector('.row-label').textContent =
+        `　 − 결제수수료 (네이버페이 ${tierLabel} ${tierRate}%)`;
+      document.getElementById('bdNaverPayment').textContent = '−' + fmt(r.commissionPay) + '원';
+    } else {
+      document.getElementById('bdCommLabelText').textContent = '　 − 판매 수수료';
+      document.getElementById('bdCommRateLabel').textContent = '　　 (수수료 세율 × 1.1 VAT)';
+      document.getElementById('bdCommRate').textContent     = `${(r.rate*100).toFixed(1)}% × 1.1 VAT = ${(r.rate*110).toFixed(2)}%`;
+    }
+
+    const isRocketMode = platform === 'coupang' && sellerType === 'rocket';
+    const isNfaMode    = platform === 'naver'   && naverSellerType === 'nfa';
+
+    if (isRocketMode || isNfaMode) {
+      document.getElementById('storageLabel').textContent = isNfaMode
+        ? '　 − 보관료 (30일 초과분, 추정)' : '　 − 보관료 (추정)';
+      document.getElementById('returnLabel').textContent  = isNfaMode
+        ? '　 − 반품 처리비 (배송비 기준, 추정)' : '　 − 반품 처리비 (추정)';
+      document.getElementById('bdStorage').textContent = '−' + fmt(r.storageFee) + '원';
+      document.getElementById('bdReturn').textContent  = '−' + fmt(r.returnFee)  + '원';
+    }
+    document.getElementById('rowNfaService').style.display = isNfaMode ? '' : 'none';
+    if (isNfaMode) {
+      document.getElementById('bdNfaService').textContent = '−' + fmt(r.nfaServiceFee) + '원';
+    }
+
+    const netEl = document.getElementById('bdNetProfit');
+    netEl.textContent = (dispProfit >= 0 ? '' : '▼ ') + fmt(dispProfit) + '원';
+    netEl.style.color = dispProfit >= 0 ? 'var(--color-profit-high)' : 'var(--color-loss)';
+
+    const bBox  = document.getElementById('breakevenBox');
+    const bText = document.getElementById('breakevenText');
+    bBox.className = 'breakeven-box';
+    if (r.breakeven === null) {
+      bBox.classList.add('warn');
+      bText.textContent = '수수료율이 너무 높아 손익분기점을 계산할 수 없습니다.';
+    } else if (dispProfit >= 0) {
+      bBox.classList.add('ok');
+      bText.textContent = `현재 판매가(${fmt(r.selling)}원)는 손익분기점(${fmt(Math.ceil(r.breakeven))}원) 이상입니다.`;
+    } else {
+      bBox.classList.add('loss');
+      bText.innerHTML = `손실 중 — 최소 판매가 <strong>${fmt(Math.ceil(r.breakeven))}원</strong> 이상으로 올려야 손익이 맞습니다.`;
+    }
+
+    // ── 권장 판매가 (정산출 모드) ──
+    if (calcMode === 'forward') {
+      const suggestTarget = parseNum('suggestTargetRate') / 100;
+      const suggestEl = document.getElementById('suggestPrice');
+
+      let suggestDenom = 1 - r.totalFeeRate - suggestTarget;
+      let suggestNumer = r.fixedCosts;
+
+      // VAT 반영
+      if (vatType === 'general') {
+        const inputVat = document.getElementById('vatInputDeduction').checked ? (r.cost / 11) : 0;
+        suggestDenom -= 1 / 11;
+        suggestNumer -= inputVat;
+      } else if (document.getElementById('vatExceedThreshold').checked) {
+        const sectorRate = parseFloat(document.getElementById('simplifiedSectorSelect').value);
+        suggestDenom -= (sectorRate * 0.1 - 0.005);
+      }
+
+      if (suggestDenom > 0) {
+        suggestEl.textContent = fmt(Math.ceil(suggestNumer / suggestDenom)) + '원';
+      } else {
+        suggestEl.textContent = '계산불가';
+      }
+    }
+
+    // ── 월 예상 순이익 ──
+    // dispProfit = 부가세 있으면 afterVatProfit, 없으면 profit (요약 카드와 동일한 기준)
+    const qty = parseNum('monthlyQty');
+    const monthlyProfit = dispProfit * qty;
+    const monthlyEl = document.getElementById('monthlyResult');
+    const monthlySubEl = document.getElementById('monthlySub');
+    monthlyEl.textContent = `월 예상 순이익: ${fmt(monthlyProfit)}원`;
+    monthlyEl.style.color = monthlyProfit >= 0 ? 'var(--color-profit-high)' : 'var(--color-loss)';
+    monthlySubEl.textContent = `(건당 마진 ${fmt(dispProfit)}원 × ${fmt(qty)}개)`;
+
+    // ── 플랫폼 비교 ──
+    renderPlatformCompare(r.selling, r.compareCosts, r.adRate, r.vatPayment);
+
+    // ── 시뮬레이터 ──
+    renderSimulator(r.selling, r.totalFeeRate, r.fixedCosts);
+
+    // ── VAT 결과 렌더 ──
+    const showVat = r.vatPayment > 0 || vatType !== 'general' ||
+                    document.getElementById('vatInputDeduction').checked ||
+                    vatType === 'simplified';
+    const vatSection = document.getElementById('vatResultSection');
+    vatSection.style.display = '';
+
+    document.getElementById('vatAmountDesc').textContent = r.vatDesc;
+
+    // 부가세 납부 행 표시
+    const rowVat = document.getElementById('rowVatPayment');
+    rowVat.style.display = r.vatPayment > 0 ? '' : 'none';
+    let vatFormula = '';
+    if (vatType === 'general') {
+      const salesVat = Math.round(r.selling / 11);
+      const inputVat = document.getElementById('vatInputDeduction').checked ? Math.round(r.cost / 11) : 0;
+      vatFormula = inputVat > 0
+        ? `(매출세액 ${fmt(salesVat)} − 매입세액 ${fmt(inputVat)})`
+        : `(판매가 ${fmt(r.selling)} ÷ 11)`;
+    } else {
+      const sectorRate = parseFloat(document.getElementById('simplifiedSectorSelect').value);
+      vatFormula = `(${fmt(r.selling)} × ${(sectorRate*100).toFixed(0)}% × 10% − 공제)`;
+    }
+    document.getElementById('bdVatPayment').textContent = '−' + fmt(r.vatPayment) + '원';
+    document.getElementById('bdVatFormula').textContent = vatFormula;
+
+    // 실수령 마진 컬러
+    const afterClass = r.afterVatProfit > 0 ? 'var(--color-profit-high)' : 'var(--color-loss)';
+    const afterMarginClass = r.afterVatMarginRate > 0.15 ? 'var(--color-profit-high)'
+                           : r.afterVatMarginRate >= 0   ? 'var(--color-profit-low)'
+                           : 'var(--color-loss)';
+    const vatAfterProfitEl     = document.getElementById('vatAfterProfit');
+    const vatAfterMarginRateEl = document.getElementById('vatAfterMarginRate');
+    vatAfterProfitEl.textContent     = fmt(r.afterVatProfit) + '원';
+    vatAfterProfitEl.style.color     = afterClass;
+    vatAfterMarginRateEl.textContent = pct(r.afterVatMarginRate);
+    vatAfterMarginRateEl.style.color = afterMarginClass;
+
+    document.getElementById('vatAfterProfitFormula').textContent =
+      `마진 ${fmt(r.profit)} − 부가세 ${fmt(r.vatPayment)}`;
+    document.getElementById('vatAfterMarginFormula').textContent =
+      `실수령 ${fmt(r.afterVatProfit)} ÷ 판매가 ${fmt(r.selling)}`;
+  }
+
+  // ─── Platform Compare ───────────────────────────────────────────────────
+  // 현재 입력한 상품을 기준으로 4개 플랫폼 수익을 동시에 계산해서 비교 테이블에 표시
+  // 카테고리가 플랫폼마다 달라 CATEGORY_ALIAS로 3단계 폴백 매칭을 시도한다
+  function renderPlatformCompare(selling, fixedCosts, adRate, vatPayment = 0) {
+    const currentCatName = document.getElementById('categorySelect').value;
+    const tbody = document.getElementById('platformCompBody');
+
+    const rows = Object.entries(PLATFORM_DATA).map(([pid, pdata]) => {
+      let matchRate = null, matchName = null;
+
+      // 1단계: 정확한 이름 매칭 (같은 이름이 있으면 바로 사용)
+      for (const group of pdata.categories) {
+        for (const item of group.items) {
+          if (item.name === currentCatName) { matchRate = item.rate / 100; matchName = item.name; break; }
+        }
+        if (matchRate !== null) break;
+      }
+
+      // 2단계: 크로스 플랫폼 별칭 매칭
+      if (matchRate === null) {
+        const aliasName = CATEGORY_ALIAS[currentCatName]?.[pid];
+        if (aliasName) {
+          for (const group of pdata.categories) {
+            for (const item of group.items) {
+              if (item.name === aliasName) { matchRate = item.rate / 100; matchName = item.name; break; }
+            }
+            if (matchRate !== null) break;
+          }
+        }
+      }
+
+      // 3단계: '기타' 폴백 (패션의류 대신 기타로)
+      if (matchRate === null) {
+        for (const group of pdata.categories) {
+          for (const item of group.items) {
+            if (item.name === '기타') { matchRate = item.rate / 100; matchName = '기타 (유사 카테고리)'; break; }
+          }
+          if (matchRate !== null) break;
+        }
+      }
+
+      // 4단계: 최후 폴백 (단일 카테고리 플랫폼 등)
+      if (matchRate === null) {
+        matchRate = pdata.categories[0].items[0].rate / 100;
+        matchName = pdata.categories[0].items[0].name;
+      }
+
+      const commRate   = matchRate * pdata.vatMultiplier;
+      const payRate    = pid === 'naver' ? NAVER_PAY_TIERS[naverPayTier].rate : pdata.paymentFeeRate;
+      const totalRate  = commRate + payRate + adRate;
+      const commission = selling * (commRate + payRate);
+      const adCost     = selling * adRate;
+      const totalCost  = fixedCosts + commission + adCost;
+      const profit     = selling - totalCost - vatPayment;
+      const marginRate = selling > 0 ? profit / selling : 0;
+
+      return { pid, name: pdata.name, matchName, totalRate: (commRate + payRate) * 100, commission, profit, marginRate };
+    });
+
+    const maxProfit = Math.max(...rows.map(r => r.profit));
+
+    tbody.innerHTML = rows.map(r => {
+      const isBest = r.profit === maxProfit && maxProfit > -Infinity;
+      const profitColor = r.profit >= 0 ? 'var(--color-profit-high)' : 'var(--color-loss)';
+      const marginColor = r.marginRate > 0.15 ? 'var(--color-profit-high)'
+                        : r.marginRate >= 0   ? 'var(--color-profit-low)' : 'var(--color-loss)';
+      return `<tr class="${isBest ? 'best-row' : ''}">
+        <td><span class="pill ${r.pid}">${escHtml(r.name)}</span>${isBest ? ' 🏆' : ''}</td>
+        <td style="color:var(--color-text-muted);font-size:0.8rem;">${escHtml(r.matchName)}</td>
+        <td class="num">${r.totalRate.toFixed(2)}%</td>
+        <td class="num">${fmt(r.commission)}원</td>
+        <td class="num" style="color:${profitColor};font-weight:700;">${fmt(r.profit)}원</td>
+        <td class="num" style="color:${marginColor};font-weight:700;">${pct(r.marginRate)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ─── Simulator ──────────────────────────────────────────────────────────
+  // 판매가 슬라이더를 움직이면 마진율이 어떻게 변하는지 SVG 차트로 보여주는 시뮬레이터
+  // _simTotalFeeRate, _simFixedCosts: 슬라이더 이벤트에서 재계산 없이 참조하기 위해 모듈 스코프에 캐시
+  let _simTotalFeeRate = 0, _simFixedCosts = 0;
+
+  // 계산 결과가 바뀔 때마다 호출 — 슬라이더 범위를 현재 판매가에 맞게 재설정
+  function renderSimulator(selling, totalFeeRate, fixedCosts) {
+    _simTotalFeeRate = totalFeeRate;
+    _simFixedCosts   = fixedCosts;
+
+    const slider = document.getElementById('simSlider');
+    const minP = Math.max(100, Math.floor(fixedCosts * 0.3 / 100) * 100);
+    const maxP = Math.ceil(selling * 3 / 1000) * 1000;
+    slider.min   = minP;
+    slider.max   = maxP;
+    slider.step  = Math.max(100, Math.floor((maxP - minP) / 300 / 100) * 100);
+    slider.value = selling;
+
+    updateSimDisplay(selling, totalFeeRate, fixedCosts);
+  }
+
+  // 슬라이더를 움직일 때마다 호출 — 캐시된 비용 값으로 빠르게 재계산
+  function onSimSlider(val) {
+    updateSimDisplay(parseFloat(val), _simTotalFeeRate, _simFixedCosts);
+  }
+
+  // 특정 판매가(simSelling)에서의 마진율/마진금액/손익분기점을 계산하고
+  // 수치 업데이트 + SVG 차트를 다시 그린다
+  function updateSimDisplay(simSelling, totalFeeRate, fixedCosts) {
+    const profit     = simSelling - simSelling * totalFeeRate - fixedCosts;
+    const marginRate = simSelling > 0 ? profit / simSelling : 0;
+    const breakeven  = (1 - totalFeeRate) > 0 ? fixedCosts / (1 - totalFeeRate) : null;
+
+    document.getElementById('simPriceLabel').textContent = fmt(simSelling) + '원';
+    const mrEl = document.getElementById('simMarginRate');
+    mrEl.textContent = pct(marginRate);
+    mrEl.style.color = marginRate > 0.15 ? 'var(--color-profit-high)'
+                     : marginRate >= 0   ? 'var(--color-profit-low)' : 'var(--color-loss)';
+    const prEl = document.getElementById('simProfit');
+    prEl.textContent = fmt(profit) + '원';
+    prEl.style.color = profit >= 0 ? 'var(--color-profit-high)' : 'var(--color-loss)';
+    document.getElementById('simBreakeven').textContent = breakeven ? fmt(Math.ceil(breakeven)) + '원' : '계산불가';
+
+    // SVG 차트 직접 렌더링 — 외부 라이브러리 없이 순수 SVG로 마진율 곡선을 그린다
+    // W×H: 내부 좌표계 크기 (실제 화면에서는 width:100%로 반응형 표시)
+    const W = 600, H = 150;
+    const padL = 42, padR = 8, padT = 10, padB = 22;
+    const chartW = W - padL - padR, chartH = H - padT - padB;
+
+    const minP = parseFloat(document.getElementById('simSlider').min);
+    const maxP = parseFloat(document.getElementById('simSlider').max);
+    const steps = 80;
+    const step = (maxP - minP) / steps;
+
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const p = minP + i * step;
+      const m = p > 0 ? (p - p * totalFeeRate - fixedCosts) / p : -1;
+      pts.push({ p, m });
+    }
+
+    const allM = pts.map(pt => pt.m);
+    const rawMinM = Math.min(...allM), rawMaxM = Math.max(...allM);
+    const rangeM  = rawMaxM - rawMinM || 1;
+    const minM = rawMinM - rangeM * 0.1;
+    const maxM = rawMaxM + rangeM * 0.1;
+
+    const xS = p  => padL + (p  - minP) / (maxP - minP) * chartW;
+    const yS = m  => padT + (1  - (m  - minM) / (maxM - minM)) * chartH;
+
+    const polyline = pts.map(pt => `${xS(pt.p).toFixed(1)},${yS(pt.m).toFixed(1)}`).join(' ');
+    const zeroY    = Math.max(padT, Math.min(padT + chartH, yS(0)));
+    const curX     = Math.max(padL, Math.min(padL + chartW, xS(simSelling)));
+    const beX      = breakeven ? Math.max(padL, Math.min(padL + chartW, xS(breakeven))) : null;
+
+    const yLabelVals = [rawMinM, 0, rawMaxM].filter((v, i, a) => a.indexOf(v) === i);
+    const yLabels = yLabelVals.map(m => `<text x="${padL - 4}" y="${yS(m) + 4}" text-anchor="end" font-size="9" fill="#94a3b8">${(m*100).toFixed(0)}%</text>`).join('');
+
+    document.getElementById('simChartWrap').innerHTML = `
+<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:150px;display:block;">
+  <rect x="${padL}" y="${padT}" width="${chartW}" height="${chartH}" fill="#f8fafc" rx="2"/>
+  <line x1="${padL}" y1="${zeroY}" x2="${padL+chartW}" y2="${zeroY}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <polyline points="${polyline}" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linejoin="round"/>
+  ${beX ? `<line x1="${beX}" y1="${padT}" x2="${beX}" y2="${padT+chartH}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"/>` : ''}
+  <line x1="${curX}" y1="${padT}" x2="${curX}" y2="${padT+chartH}" stroke="var(--color-accent)" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <circle cx="${curX}" cy="${Math.max(padT,Math.min(padT+chartH,yS(marginRate)))}" r="4" fill="var(--color-accent)"/>
+  ${yLabels}
+  <text x="${padL}" y="${H-5}" text-anchor="start" font-size="9" fill="#94a3b8">${fmt(minP)}원</text>
+  <text x="${padL+chartW}" y="${H-5}" text-anchor="end" font-size="9" fill="#94a3b8">${fmt(maxP)}원</text>
+  <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+chartH}" stroke="#e2e8f0" stroke-width="1"/>
+  <line x1="${padL}" y1="${padT+chartH}" x2="${padL+chartW}" y2="${padT+chartH}" stroke="#e2e8f0" stroke-width="1"/>
+</svg>`;
+  }
+
+  // 계산 불가 상태일 때 결과 영역을 전부 '—'로 초기화하고 오류 메시지를 표시
+  function renderCalcError(msg) {
+    setStatCard('statProfit',     'valProfit',     '—', 'neutral');
+    setStatCard('statMarginRate', 'valMarginRate', '—', 'neutral');
+    setStatCard('statRoi',        'valRoi',        '—', 'neutral');
+    document.getElementById('formulaProfit').textContent     = '';
+    document.getElementById('formulaMarginRate').textContent = '';
+    document.getElementById('formulaRoi').textContent        = '';
+    const cpv = document.getElementById('calcPriceValue');
+    if (cpv) cpv.textContent = '—';
+    ['bdSelling','bdCost','bdComm','bdLogistics','bdAdditional','bdNetProfit',
+     'bdStorage','bdReturn','bdNfaService','bdAd','bdVatPayment'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+    document.getElementById('rowAd').style.display = 'none';
+    const bBox = document.getElementById('breakevenBox');
+    bBox.className = 'breakeven-box warn';
+    document.getElementById('breakevenText').textContent = msg;
+    document.getElementById('vatResultSection').style.display = 'none';
+  }
+
+  // 요약 카드(마진금액/마진율/ROI) 텍스트와 색상 클래스를 한 번에 업데이트
+  function setStatCard(cardId, valId, text, cls) {
+    document.getElementById(valId).textContent = text;
+    document.getElementById(cardId).className  = 'stat-card ' + cls;
+  }
+
+  // 마진율에 따라 카드 색상 클래스를 반환
+  // profit-high(초록): 15% 초과 / profit-low(주황): 0~15% / loss(빨강): 음수
+  // 이 기준값을 바꾸고 싶으면 아래 숫자(0.15)를 수정하면 된다
+  function getProfitClass(rate) {
+    if (rate > 0.15) return 'profit-high';
+    if (rate >= 0)   return 'profit-low';  // 0(손익분기점) 포함 → 주황색
+    return 'loss';
+  }
+
+  // ─── Comparison Table ────────────────────────────────────────────────────
+  // '비교표에 추가' 버튼 클릭 시 호출 — 현재 계산 결과를 products 배열에 저장하고 테이블 갱신
+  // 버튼을 잠깐 비활성화해 연속 클릭을 방지한다
+  function addToComparison(event) {
+    const result = calculate();
+    if (!result) return;
+
+    const sel      = document.getElementById('categorySelect');
+    const opt      = sel.options[sel.selectedIndex];
+    const name     = document.getElementById('productName').value.trim()
+                     || `상품 ${products.length + 1}`;
+    const typeLabel = (platform === 'coupang' && sellerType === 'rocket') ? '로켓그로스'
+                     : (platform === 'naver' && naverSellerType === 'nfa') ? 'N배송'
+                     : '오픈마켓';
+
+    products.push({
+      id: Date.now(), name,
+      platform,
+      platformName: PLATFORM_DATA[platform].name,
+      category: opt.value,
+      type: typeLabel,
+      result,
+    });
+
+    renderCompTable();
+
+    const btn = event.currentTarget;
+    btn.textContent = '✅ 추가됨';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = '➕ 비교표에 추가'; btn.disabled = false; }, 1000);
+  }
+
+  // 비교표에서 특정 상품 삭제 — id로 products 배열에서 제거
+  function deleteProduct(id) {
+    products = products.filter(p => p.id !== id);
+    renderCompTable();
+  }
+
+  // '전체 삭제' 버튼 클릭 시 확인 후 비교표 전체 초기화
+  function clearAll() {
+    if (products.length === 0) return;
+    if (confirm(`비교표의 상품 ${products.length}개를 모두 삭제하시겠습니까?`)) {
+      products = [];
+      renderCompTable();
+    }
+  }
+
+  // products 배열을 읽어 비교표 tbody를 다시 렌더링
+  // 상품이 없으면 빈 상태 안내를 표시하고, 있으면 각 행을 생성
+  function renderCompTable() {
+    document.getElementById('productCount').textContent = products.length;
+    const tbody = document.getElementById('compBody');
+
+    if (products.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="15"><div class="empty-state">
+        <div class="empty-icon">📭</div>
+        아직 추가된 상품이 없습니다.<br />상품 정보를 입력 후 "비교표에 추가" 버튼을 눌러주세요.
+      </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = products.map((p, i) => {
+      const r  = p.result;
+      const pc = getProfitClass(r.marginRate);
+      const pillClass = pc === 'profit-high' ? 'high' : pc === 'profit-low' ? 'low' : 'loss';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${escHtml(p.name)}</td>
+        <td><span class="pill ${p.platform}">${escHtml(p.platformName)}</span></td>
+        <td>${escHtml(p.category)}</td>
+        <td>${escHtml(p.type)}</td>
+        <td class="num">${fmt(r.selling)}원</td>
+        <td class="num">${fmt(r.cost)}원</td>
+        <td class="num">${fmt(r.commission)}원</td>
+        <td class="num">${fmt(r.logisticsCost + r.storageFee + r.returnFee)}원</td>
+        <td class="num">${fmt(r.additional)}원</td>
+        <td class="num" style="color:${r.profit>=0?'var(--color-profit-high)':'var(--color-loss)'}">
+          ${fmt(r.profit)}원
+        </td>
+        <td class="num"><span class="pill ${pillClass}">${pct(r.marginRate)}</span></td>
+        <td class="num">${pct(r.roi)}</td>
+        <td class="num">${r.breakeven ? fmt(Math.ceil(r.breakeven))+'원' : '—'}</td>
+        <td><button class="btn btn-danger" onclick="deleteProduct(${p.id})">삭제</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ─── CSV Export ──────────────────────────────────────────────────────────
+  // 비교표의 상품 목록을 CSV 파일로 내려받는다
+  // \uFEFF (BOM) 추가로 Excel에서 한글이 깨지지 않도록 처리
+  function exportCSV() {
+    if (products.length === 0) { alert('내보낼 상품이 없습니다.'); return; }
+    const header = ['#','상품명','플랫폼','카테고리','판매유형',
+                    '판매가','원가','수수료(VAT포함)','물류비','기타비용',
+                    '마진금액','마진율(%)','ROI(%)','손익분기점'];
+    const rows = products.map((p, i) => {
+      const r = p.result;
+      return [
+        i + 1, p.name, p.platformName, p.category, p.type,
+        r.selling, r.cost,
+        r.commission.toFixed(0),
+        (r.logisticsCost + r.storageFee + r.returnFee).toFixed(0),
+        r.additional,
+        r.profit.toFixed(0),
+        (r.marginRate * 100).toFixed(2),
+        (r.roi * 100).toFixed(2),
+        r.breakeven ? Math.ceil(r.breakeven) : '',
+      ];
+    });
+    const csv = [header, ...rows].map(row =>
+      row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+    ).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `이커머스_마진계산_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── Reset ───────────────────────────────────────────────────────────────
+  // '초기화' 버튼 클릭 시 모든 입력 필드를 기본값으로 되돌린다
+  // 비교표(products)는 초기화하지 않고 입력 폼만 리셋한다
+  function resetForm() {
+    document.getElementById('productName').value      = '';
+    document.getElementById('sellingPrice').value     = '';
+    document.getElementById('costPrice').value        = '';
+    document.getElementById('additionalCost').value   = '';
+    document.getElementById('adRate').value           = '';
+    document.getElementById('shippingFee').value      = '3000';
+    document.getElementById('storageDays').value      = '20';
+    document.getElementById('returnRate').value       = '3';
+    document.getElementById('targetMarginRate').value = '20';
+    document.getElementById('categorySelect').selectedIndex = 0;
+    document.getElementById('monthlyQty').value      = '100';
+    document.getElementById('suggestTargetRate').value = '20';
+
+    // 네이버 결제수수료 등급 초기화
+    naverPayTier = 'general';
+    document.getElementById('naverPayTierSelect').value = 'general';
+
+    // N배송 초기화 (네이버 플랫폼일 때만 해당이지만 항상 리셋)
+    if (naverSellerType === 'nfa') {
+      setNaverSellerType('general');
+    }
+    document.getElementById('nfaSizeTier').selectedIndex  = 1; // M 기본값
+    document.getElementById('nfaStorageDays').value = '20';
+    document.getElementById('nfaReturnRate').value  = '3';
+
+    // VAT 초기화
+    document.querySelector('input[name="vatType"][value="general"]').checked = true;
+    vatType = 'general';
+    document.getElementById('vatGeneralOptions').style.display    = '';
+    document.getElementById('vatSimplifiedOptions').style.display = 'none';
+    document.getElementById('vatInputDeduction').checked          = false;
+    document.getElementById('vatExceedThreshold').checked         = false;
+    document.getElementById('vatExemptNotice').style.display      = '';
+    document.getElementById('vatSimplifiedSector').style.display  = 'none';
+
+    onCategoryChange();
+  }
+
+  // ─── Utilities ───────────────────────────────────────────────────────────
+  // input 요소의 값을 숫자로 파싱 — 빈 칸이거나 NaN이면 0 반환
+  function parseNum(id) {
+    const v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? 0 : v;
+  }
+  // 숫자를 한국식 천 단위 구분 포맷으로 변환 (예: 1234567 → "1,234,567")
+  function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+  // 소수를 퍼센트 문자열로 변환 (예: 0.1234 → "12.3%")
+  function pct(n) { return (n * 100).toFixed(1) + '%'; }
+  // innerHTML에 삽입할 문자열의 특수문자를 이스케이프해 XSS를 방지
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  // ─── Fixed Tooltip (모든 툴팁 공통) ─────────────────────────────────────
+  // CSS position:absolute 방식은 부모 overflow:hidden에 잘리므로 JS position:fixed로 처리
+  (function () {
+    const tip = document.getElementById('fixedTooltip');
+    const selectors = '.tier-tooltip-icon, .roi-tooltip-icon';
+    document.querySelectorAll(selectors).forEach(icon => {
+      const wrap = icon.closest('.tier-tooltip-wrap, .roi-tooltip-wrap');
+      const box  = wrap && wrap.querySelector('.tier-tooltip-box, .roi-tooltip-box');
+      if (!box) return;
+      icon.addEventListener('mouseenter', () => {
+        tip.innerHTML = box.innerHTML;
+        tip.style.display = 'block';
+        const r = icon.getBoundingClientRect();
+        // 아이콘 위쪽 중앙에 표시, 뷰포트 벗어나면 아래쪽으로 전환
+        const spaceAbove = r.top;
+        if (spaceAbove > 80) {
+          tip.style.top       = (r.top - 8) + 'px';
+          tip.style.transform = 'translate(-50%, -100%)';
+        } else {
+          tip.style.top       = (r.bottom + 8) + 'px';
+          tip.style.transform = 'translateX(-50%)';
+        }
+        tip.style.left = (r.left + r.width / 2) + 'px';
+      });
+      icon.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    });
+  })();
+
+  // 페이지 로드 시 초기 실행 — 카테고리 드롭다운을 채우면 onCategoryChange → calculate 가 연달아 호출된다
+  buildCategorySelect();
+</script>
+</body>
+</html>
